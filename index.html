@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sleep Control</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box }
+  body { font-family: -apple-system, sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:transparent; user-select:none; }
+  .container { text-align:center; padding: 30px; }
+  h1 { font-size:28px; font-weight:700; margin-bottom:5px; color:#fff; }
+  .sub { font-size:13px; color:#999; margin-bottom:30px; }
+  .timer { font-size:56px; font-weight:300; color:#fff; margin:15px 0; font-variant-numeric:tabular-nums; }
+  .label { font-size:12px; color:#666; text-transform:uppercase; letter-spacing:2px; margin-top:20px; }
+  .btn { display:inline-block; padding:12px 28px; margin:8px; border-radius:10px; border:none; font-size:14px; font-weight:600; cursor:pointer; transition:all .15s; }
+  .btn-primary { background:#007AFF; color:#fff; }
+  .btn-primary:hover { background:#0062cc; }
+  .btn-danger { background:#FF3B30; color:#fff; }
+  .btn-danger:hover { background:#cc2f26; }
+  .btn-secondary { background:rgba(255,255,255,0.12); color:#fff; }
+  .btn-secondary:hover { background:rgba(255,255,255,0.2); }
+  .row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:10px 0; }
+  .status { font-size:12px; color:#666; margin-top:20px; }
+  .status.active { color:#30D158; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🌙 Sleep Control</h1>
+  <p class="sub">Keep your Mac awake — even with lid closed</p>
+  <div class="timer" id="timer">--:--</div>
+  <div class="row">
+    <button class="btn btn-primary" onclick="disable(1800)">30 min</button>
+    <button class="btn btn-primary" onclick="disable(3600)">1 hour</button>
+    <button class="btn btn-primary" onclick="disable(7200)">2 hours</button>
+  </div>
+  <div class="row">
+    <button class="btn btn-primary" onclick="disable(14400)">4 hours</button>
+    <button class="btn btn-primary" onclick="disable(28800)">8 hours</button>
+    <button class="btn btn-danger" onclick="enableNow()">Stop</button>
+  </div>
+  <div class="status" id="status">Checking...</div>
+</div>
+<script>
+const $ = id => document.getElementById(id)
+let running = false
+
+function fmt(s) {
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60
+  return h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${m}:${String(sec).padStart(2,'0')}`
+}
+
+async function disable(secs) {
+  const r = await window.sleep.disable(secs)
+  if (r.ok) { running = true; $('status').textContent = 'Sleep disabled — lid-close safe'; $('status').className = 'status active' }
+  else alert('Failed: ' + r.error)
+}
+
+async function enableNow() {
+  const r = await window.sleep.enable()
+  if (r.ok) { running = false; $('timer').textContent = '--:--'; $('status').textContent = 'Sleep restored'; $('status').className = 'status' }
+}
+
+window.sleep.onTick(n => { if (running) { $('timer').textContent = fmt(n); $('status').textContent = `Sleep disabled — ${fmt(n)} remaining` } })
+window.sleep.onRestored(() => { running = false; $('timer').textContent = '--:--'; $('status').textContent = 'Auto-restored to normal sleep'; $('status').className = 'status' })
+window.sleep.status().then(s => {
+  if (s.disabled && s.remaining>0) { running = true; $('timer').textContent = fmt(s.remaining); $('status').textContent = 'Sleep disabled'; $('status').className = 'status active' }
+  else $('status').textContent = 'Sleep normal'
+})
+</script>
+</body>
+</html>

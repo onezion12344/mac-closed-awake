@@ -1,0 +1,33 @@
+{
+  "name": "sleep-control",
+  "version": "1.0.0",
+  "description": "One-click Mac sleep prevention — keeps Mac awake even with lid closed",
+  "main": "main.js",
+  "author": "Harry Huang <onezion12344@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac",
+    "build:mas": "electron-builder --mac --mas",
+    "dist": "electron-builder --mac --publish never"
+  },
+  "build": {
+    "appId": "com.onezion.sleep-control",
+    "productName": "Sleep Control",
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": ["dmg", "zip"],
+      "icon": "icon.icns",
+      "entitlements": "entitlements.mac.plist",
+      "hardenedRuntime": true
+    },
+    "mas": {
+      "category": "public.app-category.utilities",
+      "entitlements": "entitlements.mas.plist"
+    }
+  },
+  "devDependencies": {
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3"
+  }
+}
