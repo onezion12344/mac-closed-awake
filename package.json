@@ -1,14 +1,13 @@
 {
-  "name": "lidajar",
+  "name": "mac-closed-awake",
   "version": "1.0.0",
   "description": "Your Mac stays awake — lid closed or not. No sleep, ever.",
   "main": "main.js",
   "author": "Harry Huang <onezion12344@gmail.com>",
   "license": "MIT",
-  "homepage": "https://lidajar.app",
   "repository": {
     "type": "git",
-    "url": "https://github.com/onezion12344/lidajar"
+    "url": "https://github.com/onezion12344/mac-closed-awake"
   },
   "scripts": {
     "start": "electron .",
@@ -17,8 +16,8 @@
     "dist": "electron-builder --mac --publish never"
   },
   "build": {
-    "appId": "com.lidajar.app",
-    "productName": "LidAjar",
+    "appId": "com.onezion.mac-closed-awake",
+    "productName": "MacClosedAwake",
     "mac": {
       "category": "public.app-category.utilities",
       "target": ["dmg", "zip"],

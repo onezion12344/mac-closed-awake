@@ -1,15 +1,15 @@
 ---
-name: lidajar
-description: Keep Mac awake — even with lid closed. No sleep, ever. Uses privileged helper for password-free operation. Trigger: "不睡觉", "防睡眠", "合盖不睡", "keep awake", "prevent sleep", "never sleep", "lidajar".
+name: mca
+description: Keep Mac awake — even with lid closed. No sleep, ever. Uses privileged helper for password-free operation. Trigger: "不睡觉", "防睡眠", "合盖不睡", "keep awake", "prevent sleep", "never sleep", "mca".
 version: "1.0.0"
 ---
 
-# LidAjar
+# MacClosedAwake
 
 **If this is your first time loading this skill**, the MCP server needs to be registered. Run:
 
 ```bash
-claude mcp add lidajar --transport stdio -- /opt/homebrew/bin/bun run ~/Projects/sleep-control-app/mcp/server.ts
+claude mcp add mca --transport stdio -- /opt/homebrew/bin/bun run ~/Projects/sleep-control-app/mcp/server.ts
 ```
 
 **Already configured?** Skip to usage.
@@ -24,7 +24,7 @@ Ask Claude naturally:
 - "恢复睡眠"
 - "永远不睡"
 
-Claude will call the `lidajar_start` / `lidajar_stop` / `lidajar_status` MCP tools.
+Claude will call the `mca_start` / `mca_stop` / `mca_status` MCP tools.
 
 ## What it does
 
@@ -39,9 +39,9 @@ Runs via a privileged helper (Unix socket) — no password prompts after first i
 
 | Tool | Description |
 |------|-------------|
-| `lidajar_start(duration_seconds)` | Disable sleep. 0 = forever. Auto-restores. |
-| `lidajar_stop()` | Immediately re-enable normal sleep |
-| `lidajar_status()` | Check current state |
+| `mca_start(duration_seconds)` | Disable sleep. 0 = forever. Auto-restores. |
+| `mca_stop()` | Immediately re-enable normal sleep |
+| `mca_status()` | Check current state |
 
 ## Requirements
 

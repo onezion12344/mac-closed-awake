@@ -11,9 +11,9 @@ let totalDuration = 0
 let helperRunning = false
 let forever = false
 
-const HELPER_SOCKET = '/tmp/com.lidajar.helper.sock'
-const HELPER_PLIST = path.join(app.getPath('home'), 'Library/LaunchAgents/com.lidajar.helper.plist')
-const HELPER_BIN = path.join(app.getPath('home'), '.lidajar/lidar-helper')
+const HELPER_SOCKET = '/tmp/com.mca.helper.sock'
+const HELPER_PLIST = path.join(app.getPath('home'), 'Library/LaunchAgents/com.mca.helper.plist')
+const HELPER_BIN = path.join(app.getPath('home'), '.mca/lidar-helper')
 const STORE_PATH = path.join(app.getPath('userData'), 'config.json')
 
 // ── Config store ──
@@ -27,7 +27,7 @@ function saveConfig(cfg) {
 
 // ── Helper daemon ──
 const HELPER_SCRIPT = `#!/bin/bash
-# LidAjar privileged helper — runs as root via launchd
+# MacClosedAwake privileged helper — runs as root via launchd
 SOCKET="${HELPER_SOCKET}"
 rm -f "$SOCKET"
 
@@ -112,7 +112,7 @@ async function installHelper() {
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.lidajar.helper</string>
+  <string>com.mca.helper</string>
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
@@ -123,9 +123,9 @@ async function installHelper() {
   <key>KeepAlive</key>
   <true/>
   <key>StandardOutPath</key>
-  <string>/tmp/lidajar-helper.log</string>
+  <string>/tmp/mca-helper.log</string>
   <key>StandardErrorPath</key>
-  <string>/tmp/lidajar-helper.err</string>
+  <string>/tmp/mca-helper.err</string>
 </dict>
 </plist>
 `
@@ -244,7 +244,7 @@ ipcMain.handle('is-pro', () => {
 })
 
 ipcMain.handle('upgrade', () => {
-  shell.openExternal('https://lidajar.app/upgrade')
+  shell.openExternal('https://mca.app/upgrade')
 })
 
 // ── Tray ──
@@ -292,7 +292,7 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow()
   tray = new Tray(path.join(__dirname, 'icon.png'))
-  tray.setToolTip('LidAjar')
+  tray.setToolTip('MacClosedAwake')
   updateTrayMenu()
 })
 

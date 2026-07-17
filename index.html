@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LidAjar</title>
+<title>MacClosedAwake</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -375,7 +375,7 @@
   <div class="overlay-card">
     <div style="font-size:32px;margin-bottom:12px">&#x26A1;</div>
     <h2>One-Time Setup</h2>
-    <p>LidAjar needs a small helper to control sleep settings. You'll be prompted for your password once.</p>
+    <p>MacClosedAwake needs a small helper to control sleep settings. You'll be prompted for your password once.</p>
     <button class="overlay-btn" onclick="installHelper()">Install Helper</button>
   </div>
 </div>
@@ -384,7 +384,7 @@
   <!-- Header -->
   <div class="logo">
     <div class="logo-icon">&#x26A1;</div>
-    <span class="logo-text">LidAjar</span>
+    <span class="logo-text">MacClosedAwake</span>
   </div>
   <div class="tagline">Your Mac stays awake. Lid closed or not.</div>
 
@@ -452,7 +452,7 @@
   <button class="stop-btn" onclick="stop()">Restore Sleep</button>
 
   <div class="footer">
-    LidAjar v1.0 &mdash; <a href="#" onclick="openUpgrade()">Upgrade</a>
+    MacClosedAwake v1.0 &mdash; <a href="#" onclick="openUpgrade()">Upgrade</a>
   </div>
 </div>
 
@@ -496,7 +496,7 @@ async function start(secs) {
 
   totalSecs = secs;
   forever = secs === 0;
-  const r = await window.lidajar.start(secs);
+  const r = await window.mca.start(secs);
   if (r.ok) {
     running = true;
     setActive(secs);
@@ -509,7 +509,7 @@ async function start(secs) {
 }
 
 async function stop() {
-  const r = await window.lidajar.stop();
+  const r = await window.mca.stop();
   if (r.ok) {
     running = false;
     forever = false;
@@ -524,11 +524,11 @@ async function stop() {
 }
 
 function openUpgrade() {
-  window.lidajar.upgrade();
+  window.mca.upgrade();
 }
 
 async function installHelper() {
-  const r = await window.lidajar.installHelper();
+  const r = await window.mca.installHelper();
   if (r.ok) {
     $('installOverlay').classList.remove('show');
     $('statusText').textContent = 'Ready';
@@ -536,7 +536,7 @@ async function installHelper() {
 }
 
 // IPC listeners
-window.lidajar.onTick((n) => {
+window.mca.onTick((n) => {
   if (!running) return;
   if (forever) {
     $('timer').textContent = '∞';
@@ -547,7 +547,7 @@ window.lidajar.onTick((n) => {
   }
 });
 
-window.lidajar.onRestored(() => {
+window.mca.onRestored(() => {
   running = false;
   forever = false;
   $('timer').textContent = '--:--';
@@ -559,11 +559,11 @@ window.lidajar.onRestored(() => {
   $('foreverBtn').classList.remove('active');
 });
 
-window.lidajar.onHelperNeeded(() => {
+window.mca.onHelperNeeded(() => {
   $('installOverlay').classList.add('show');
 });
 
-window.lidajar.onProStatus((pro) => {
+window.mca.onProStatus((pro) => {
   isPro = pro;
   if (pro) {
     $('upgradeBanner').classList.remove('show');
@@ -572,7 +572,7 @@ window.lidajar.onProStatus((pro) => {
 });
 
 // Init
-window.lidajar.status().then(s => {
+window.mca.status().then(s => {
   if (s.helperInstalled === false) {
     $('installOverlay').classList.add('show');
   }
@@ -593,7 +593,7 @@ window.lidajar.status().then(s => {
     $('statusText').textContent = 'Sleep disabled — forever';
     $('foreverBtn').classList.add('active');
   }
-  window.lidajar.isPro().then(p => {
+  window.mca.isPro().then(p => {
     isPro = p;
     if (!p) $('upgradeBanner').classList.add('show');
   });

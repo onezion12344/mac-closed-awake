@@ -1,5 +1,5 @@
 const { contextBridge, ipcRenderer } = require('electron')
-contextBridge.exposeInMainWorld('lidajar', {
+contextBridge.exposeInMainWorld('mca', {
   start: (secs) => ipcRenderer.invoke('start', secs),
   stop: () => ipcRenderer.invoke('stop'),
   status: () => ipcRenderer.invoke('status'),

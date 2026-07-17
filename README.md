@@ -1,4 +1,4 @@
-# LidAjar
+# MacClosedAwake
 
 Your Mac stays awake. Lid closed or not. No sleep, ever.
 
@@ -23,13 +23,13 @@ A small privileged helper runs as root via launchd, listening on a Unix socket. 
 
 ## Install
 
-Download the latest `.dmg` from [Releases](https://github.com/onezion12344/lidajar/releases).
+Download the latest `.dmg` from [Releases](https://github.com/onezion12344/mca/releases).
 
 Or build from source:
 
 ```bash
-git clone https://github.com/onezion12344/lidajar.git
-cd lidajar
+git clone https://github.com/onezion12344/mca.git
+cd mca
 npm install
 npm start
 ```
