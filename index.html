@@ -380,6 +380,28 @@
   </div>
 </div>
 
+<!-- License key overlay -->
+<div class="overlay" id="licenseOverlay">
+  <div class="overlay-card">
+    <div style="font-size:32px;margin-bottom:12px">&#x2B50;</div>
+    <h2>Activate Pro</h2>
+    <p>Enter your license key from Lemon Squeezy to unlock unlimited sessions &amp; forever mode.</p>
+    <input type="text" id="licenseInput" placeholder="XXXX-XXXX-XXXX-XXXX" style="
+      width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.06); color: #fff; font-family: monospace; font-size: 13px;
+      text-align: center; margin-bottom: 12px; outline: none; letter-spacing: 1px;
+    ">
+    <div id="licenseError" style="font-size:11px;color:#ef4444;margin-bottom:10px;display:none"></div>
+    <button class="overlay-btn" onclick="activateLicense()">Activate</button>
+    <div style="margin-top:12px">
+      <a href="#" onclick="openUpgrade()" style="font-size:11px;color:rgba(255,255,255,0.4);text-decoration:none">Don't have a key? Buy Pro</a>
+    </div>
+    <div style="margin-top:8px">
+      <a href="#" onclick="closeLicense()" style="font-size:11px;color:rgba(255,255,255,0.3);text-decoration:none">Cancel</a>
+    </div>
+  </div>
+</div>
+
 <div class="app">
   <!-- Header -->
   <div class="logo">
@@ -415,7 +437,7 @@
   <!-- Upgrade banner (shown when free user hits limit) -->
   <div class="upgrade-banner" id="upgradeBanner" onclick="openUpgrade()">
     <div class="upgrade-title">&#x2B50; Upgrade to Pro</div>
-    <div class="upgrade-desc">Unlock unlimited sessions &amp; forever mode</div>
+    <div class="upgrade-desc">Unlock unlimited sessions &amp; forever mode · <span style="text-decoration:underline">Enter license key</span></div>
   </div>
 
   <!-- Presets -->
@@ -524,7 +546,33 @@ async function stop() {
 }
 
 function openUpgrade() {
-  window.mca.upgrade();
+  $('licenseOverlay').classList.add('show');
+}
+
+function closeLicense() {
+  $('licenseOverlay').classList.remove('show');
+  $('licenseError').style.display = 'none';
+  $('licenseInput').value = '';
+}
+
+async function activateLicense() {
+  const key = $('licenseInput').value.trim();
+  if (!key) return;
+  const btn = document.querySelector('#licenseOverlay .overlay-btn');
+  btn.textContent = 'Activating...';
+  btn.disabled = true;
+  const r = await window.mca.activateLicense(key);
+  btn.textContent = 'Activate';
+  btn.disabled = false;
+  if (r.ok) {
+    $('licenseOverlay').classList.remove('show');
+    $('upgradeBanner').classList.remove('show');
+    document.querySelectorAll('.pro-badge').forEach(b => b.style.display = 'none');
+    isPro = true;
+  } else {
+    $('licenseError').textContent = r.error || 'Invalid key';
+    $('licenseError').style.display = 'block';
+  }
 }
 
 async function installHelper() {

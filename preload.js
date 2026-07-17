@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('mca', {
   installHelper: () => ipcRenderer.invoke('install-helper'),
   isPro: () => ipcRenderer.invoke('is-pro'),
   upgrade: () => ipcRenderer.invoke('upgrade'),
+  activateLicense: (key) => ipcRenderer.invoke('activate-license', key),
   onTick: (fn) => ipcRenderer.on('tick', (_, n) => fn(n)),
   onRestored: (fn) => ipcRenderer.on('restored', () => fn()),
   onHelperNeeded: (fn) => ipcRenderer.on('helper-needed', () => fn()),

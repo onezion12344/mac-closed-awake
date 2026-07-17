@@ -3,6 +3,13 @@ const { exec, spawn } = require('child_process')
 const path = require('path')
 const fs = require('fs')
 const net = require('net')
+const https = require('https')
+
+// ── Lemon Squeezy config ──
+// Set these after creating your product on lemonsqueezy.com
+const LEMON_STORE_ID = '' // e.g. '12345'
+const LEMON_VARIANT_ID = '' // e.g. '67890' — the Pro variant
+const LEMON_API_KEY = '' // Your Lemon Squeezy API key
 
 let win, tray
 let restoreTimer = null
@@ -192,6 +199,64 @@ function startTimer(secs) {
   }, 1000)
 }
 
+// ── Lemon Squeezy license validation ──
+function lemonRequest(urlPath, method = 'GET', body = null) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'api.lemonsqueezy.com',
+      path: urlPath,
+      method,
+      headers: {
+        'Authorization': `Bearer ${LEMON_API_KEY}`,
+        'Accept': 'application/vnd.api+json',
+        'Content-Type': 'application/vnd.api+json',
+      },
+    }
+    const req = https.request(options, (res) => {
+      let data = ''
+      res.on('data', (chunk) => data += chunk)
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)) } catch { reject(new Error('Invalid JSON')) }
+      })
+    })
+    req.on('error', reject)
+    if (body) req.write(JSON.stringify(body))
+    req.end()
+  })
+}
+
+async function validateLicense(licenseKey) {
+  try {
+    const res = await lemonRequest(`/v1/licenses/validate`, 'POST', {
+      data: {
+        type: 'license-validate',
+        attributes: { key: licenseKey },
+      },
+    })
+    if (res.data && res.data.attributes) {
+      const attrs = res.data.attributes
+      if (attrs.valid && attrs.meta && attrs.meta.store_id == LEMON_STORE_ID) {
+        return { valid: true, email: attrs.meta.user_email || '' }
+      }
+    }
+    return { valid: false }
+  } catch (e) {
+    return { valid: false, error: e.message }
+  }
+}
+
+function openCheckout() {
+  const checkoutUrl = `https://onezion.lemonsqueezy.com/checkout/buy/${LEMON_VARIANT_ID}`
+  const checkoutWin = new BrowserWindow({
+    width: 500,
+    height: 700,
+    title: 'Upgrade to Pro',
+    webPreferences: { nodeIntegration: false },
+  })
+  checkoutWin.loadURL(checkoutUrl)
+  checkoutWin.on('closed', () => { checkoutWin = null })
+}
+
 // ── IPC handlers ──
 ipcMain.handle('start', async (_, secs) => {
   try {
@@ -244,7 +309,21 @@ ipcMain.handle('is-pro', () => {
 })
 
 ipcMain.handle('upgrade', () => {
-  shell.openExternal('https://mca.app/upgrade')
+  openCheckout()
+})
+
+ipcMain.handle('activate-license', async (_, licenseKey) => {
+  const result = await validateLicense(licenseKey)
+  if (result.valid) {
+    const cfg = loadConfig()
+    cfg.isPro = true
+    cfg.licenseKey = licenseKey
+    cfg.proEmail = result.email || ''
+    saveConfig(cfg)
+    if (win && !win.isDestroyed()) win.webContents.send('pro-status', true)
+    return { ok: true }
+  }
+  return { ok: false, error: 'Invalid license key' }
 })
 
 // ── Tray ──
