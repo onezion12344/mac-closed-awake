@@ -1,8 +1,13 @@
 const { contextBridge, ipcRenderer } = require('electron')
-contextBridge.exposeInMainWorld('sleep', {
-  disable: (s) => ipcRenderer.invoke('disable-sleep', s),
-  enable: () => ipcRenderer.invoke('enable-sleep'),
-  status: () => ipcRenderer.invoke('get-status'),
+contextBridge.exposeInMainWorld('lidajar', {
+  start: (secs) => ipcRenderer.invoke('start', secs),
+  stop: () => ipcRenderer.invoke('stop'),
+  status: () => ipcRenderer.invoke('status'),
+  installHelper: () => ipcRenderer.invoke('install-helper'),
+  isPro: () => ipcRenderer.invoke('is-pro'),
+  upgrade: () => ipcRenderer.invoke('upgrade'),
   onTick: (fn) => ipcRenderer.on('tick', (_, n) => fn(n)),
   onRestored: (fn) => ipcRenderer.on('restored', () => fn()),
+  onHelperNeeded: (fn) => ipcRenderer.on('helper-needed', () => fn()),
+  onProStatus: (fn) => ipcRenderer.on('pro-status', (_, p) => fn(p)),
 })

@@ -1,24 +1,38 @@
 #!/usr/bin/env bun
 import { createInterface } from "node:readline/promises";
 import { spawn } from "node:child_process";
+import net from "node:net";
+
+const SOCKET = "/tmp/com.lidajar.helper.sock";
 
 const TOOLS = [
   {
-    name: "sleep_disable",
-    description: "Disable system sleep — Mac stays awake even with lid closed. REQUIRES duration_seconds. Auto-restores via background timer.",
-    inputSchema: { type: "object", properties: { duration_seconds: { type: "number", description: "Seconds. 1800=30min, 3600=1h, 7200=2h." } }, required: ["duration_seconds"] },
+    name: "lidajar_start",
+    description: "Disable system sleep — Mac stays awake even with lid closed. Pass duration_seconds. Auto-restores via timer. Use 0 for forever mode.",
+    inputSchema: { type: "object", properties: { duration_seconds: { type: "number", description: "Seconds. 1800=30min, 3600=1h, 7200=2h, 0=forever." } }, required: ["duration_seconds"] },
   },
   {
-    name: "sleep_enable",
+    name: "lidajar_stop",
     description: "Immediately re-enable normal sleep. Kills any pending auto-restore timers.",
     inputSchema: { type: "object", properties: {} },
   },
   {
-    name: "sleep_status",
+    name: "lidajar_status",
     description: "Check current disablesleep state and any running background restore timers.",
     inputSchema: { type: "object", properties: {} },
   },
 ];
+
+function helperSend(cmd: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const sock = new net.Socket();
+    sock.setTimeout(3000);
+    sock.connect(SOCKET, () => sock.write(cmd));
+    sock.on("data", (d) => { const m = d.toString().trim(); sock.destroy(); resolve(m); });
+    sock.on("error", () => { sock.destroy(); reject(new Error("Helper not running. Run `lidajar` app and install helper.")); });
+    sock.on("timeout", () => { sock.destroy(); reject(new Error("Helper timeout")); });
+  });
+}
 
 function exec(cmd: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
   return new Promise((resolve) => {
@@ -30,47 +44,48 @@ function exec(cmd: string, args: string[]): Promise<{ stdout: string; stderr: st
   });
 }
 
-async function sleepDisable(secs: number): Promise<string> {
-  const r = await exec("sudo", ["/usr/bin/pmset", "-a", "disablesleep", "1"]);
-  if (r.code !== 0) return `Error: ${r.stderr}`;
-  spawn("sh", ["-c", `sleep ${secs} && sudo /usr/bin/pmset -a disablesleep 0`], { detached: true, stdio: "ignore" }).unref();
-  return secs >= 60
-    ? `✅ Sleep disabled for ${Math.round(secs/60)} min. Auto-restore in ${secs}s.`
-    : `✅ Sleep disabled for ${secs}s.`;
+async function lidajarStart(secs: number): Promise<string> {
+  await helperSend("DISABLE");
+  if (secs > 0) {
+    spawn("sh", ["-c", `sleep ${secs} && ${process.argv[0]} -e "const net = require('net'); const s = new net.Socket(); s.connect('${SOCKET}', () => s.write('ENABLE')); s.on('data', () => s.destroy());"`], { detached: true, stdio: "ignore" }).unref();
+    return secs >= 60
+      ? `✅ Sleep disabled for ${Math.round(secs / 60)} min. Auto-restore in ${secs}s.`
+      : `✅ Sleep disabled for ${secs}s.`;
+  }
+  return `✅ Sleep disabled forever. Use lidajar_stop to restore.`;
 }
 
-async function sleepEnable(): Promise<string> {
-  await exec("pkill", ["-f", "sudo /usr/bin/pmset -a disablesleep 0"]);
-  const r = await exec("sudo", ["/usr/bin/pmset", "-a", "disablesleep", "0"]);
-  return r.code === 0 ? "✅ Sleep re-enabled." : `Error: ${r.stderr}`;
+async function lidajarStop(): Promise<string> {
+  await helperSend("ENABLE");
+  return "✅ Sleep re-enabled.";
 }
 
-async function sleepStatus(): Promise<string> {
-  const pm = await exec("pmset", ["-g", "custom"]);
-  const dl = pm.stdout.split("\n").find((l) => l.includes("disablesleep"));
-  const ps = await exec("bash", ["-c", "ps aux | grep -E 'sudo.*pmset.*disablesleep' | grep -v grep || true"]);
-  const parts: string[] = [];
-  if (dl) parts.push(`disablesleep: ${dl.trim().split(/\s+/).pop() === "1" ? "ON (stay awake)" : "OFF (normal)"}`);
-  parts.push(ps.stdout ? `Timers:\n${ps.stdout}` : "No timers.");
-  return parts.join("\n");
+async function lidajarStatus(): Promise<string> {
+  try {
+    const status = await helperSend("STATUS");
+    const isOn = status === "1";
+    return isOn ? "🟢 Sleep disabled (Mac will stay awake)" : "⚪ Sleep normal (Mac will sleep on lid close)";
+  } catch (e) {
+    return `⚠️ Helper not running. Start the LidAjar app to install it.\nError: ${e}`;
+  }
 }
 
-async function handle(req: { id: number|string; method: string; params?: Record<string,unknown> }): Promise<object|null> {
+async function handle(req: { id: number | string; method: string; params?: Record<string, unknown> }): Promise<object | null> {
   const { id, method, params } = req;
   switch (method) {
     case "initialize":
-      return { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "sleep-control", version: "1.0.0" } };
+      return { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "lidajar", version: "1.0.0" } };
     case "tools/list":
       return { tools: TOOLS };
     case "tools/call": {
-      const p = params as { name: string; arguments?: Record<string,unknown> };
+      const p = params as { name: string; arguments?: Record<string, unknown> };
       const args = p.arguments ?? {};
       try {
         let text: string;
         switch (p.name) {
-          case "sleep_disable": text = await sleepDisable(args.duration_seconds as number); break;
-          case "sleep_enable": text = await sleepEnable(); break;
-          case "sleep_status": text = await sleepStatus(); break;
+          case "lidajar_start": text = await lidajarStart(args.duration_seconds as number); break;
+          case "lidajar_stop": text = await lidajarStop(); break;
+          case "lidajar_status": text = await lidajarStatus(); break;
           default: return { isError: true, content: [{ type: "text", text: `Unknown: ${p.name}` }] };
         }
         return { content: [{ type: "text", text }] };
@@ -83,7 +98,7 @@ async function handle(req: { id: number|string; method: string; params?: Record<
 
 async function main() {
   const rl = createInterface({ input: process.stdin });
-  process.stderr.write("[sleep-control] started\n");
+  process.stderr.write("[lidajar] started\n");
   for await (const line of rl) {
     if (!line.trim()) continue;
     try {

@@ -3,70 +3,601 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sleep Control</title>
+<title>LidAjar</title>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box }
-  body { font-family: -apple-system, sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:transparent; user-select:none; }
-  .container { text-align:center; padding: 30px; }
-  h1 { font-size:28px; font-weight:700; margin-bottom:5px; color:#fff; }
-  .sub { font-size:13px; color:#999; margin-bottom:30px; }
-  .timer { font-size:56px; font-weight:300; color:#fff; margin:15px 0; font-variant-numeric:tabular-nums; }
-  .label { font-size:12px; color:#666; text-transform:uppercase; letter-spacing:2px; margin-top:20px; }
-  .btn { display:inline-block; padding:12px 28px; margin:8px; border-radius:10px; border:none; font-size:14px; font-weight:600; cursor:pointer; transition:all .15s; }
-  .btn-primary { background:#007AFF; color:#fff; }
-  .btn-primary:hover { background:#0062cc; }
-  .btn-danger { background:#FF3B30; color:#fff; }
-  .btn-danger:hover { background:#cc2f26; }
-  .btn-secondary { background:rgba(255,255,255,0.12); color:#fff; }
-  .btn-secondary:hover { background:rgba(255,255,255,0.2); }
-  .row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:10px 0; }
-  .status { font-size:12px; color:#666; margin-top:20px; }
-  .status.active { color:#30D158; }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+    background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+    color: #fff;
+    user-select: none;
+    overflow: hidden;
+  }
+
+  /* Subtle animated background */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(circle at 30% 40%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 70% 60%, rgba(168, 85, 247, 0.06) 0%, transparent 50%);
+    animation: drift 20s ease-in-out infinite alternate;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes drift {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    100% { transform: translate(-3%, -3%) rotate(2deg); }
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 380px;
+    padding: 40px 30px 30px;
+  }
+
+  /* Header */
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+  }
+  .logo-text {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  .tagline {
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 30px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Timer Ring */
+  .timer-wrap {
+    position: relative;
+    width: 180px; height: 180px;
+    margin-bottom: 24px;
+  }
+  .timer-ring {
+    transform: rotate(-90deg);
+    width: 180px; height: 180px;
+  }
+  .timer-ring-bg {
+    fill: none;
+    stroke: rgba(255,255,255,0.06);
+    stroke-width: 6;
+  }
+  .timer-ring-progress {
+    fill: none;
+    stroke: url(#timerGradient);
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-dasharray: 502;
+    stroke-dashoffset: 502;
+    transition: stroke-dashoffset 1s linear;
+  }
+  .timer-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .timer-value {
+    font-size: 42px;
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+  .timer-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-top: 6px;
+  }
+
+  /* Status pill */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    font-size: 11px;
+    font-weight: 500;
+    margin-bottom: 28px;
+    transition: all 0.3s ease;
+  }
+  .status-pill.active {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.25);
+    color: #22c55e;
+  }
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.3);
+    transition: background 0.3s;
+  }
+  .status-pill.active .status-dot {
+    background: #22c55e;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* Preset buttons */
+  .presets {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 12px;
+  }
+  .preset {
+    position: relative;
+    padding: 14px 0;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.7);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
+  }
+  .preset:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.15);
+    color: #fff;
+    transform: translateY(-1px);
+  }
+  .preset:active {
+    transform: translateY(0);
+  }
+  .preset.selected {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2));
+    border-color: rgba(99, 102, 241, 0.4);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.15);
+  }
+  .preset-time {
+    font-size: 15px;
+    font-weight: 600;
+    display: block;
+  }
+  .preset-label {
+    font-size: 10px;
+    color: rgba(255,255,255,0.35);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 2px;
+  }
+
+  /* Forever button */
+  .forever-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(168, 85, 247, 0.3);
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(99, 102, 241, 0.1));
+    color: #a855f7;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 16px;
+    letter-spacing: 0.5px;
+  }
+  .forever-btn:hover {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(99, 102, 241, 0.2));
+    border-color: rgba(168, 85, 247, 0.5);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.15);
+  }
+  .forever-btn.active {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(99, 102, 241, 0.25));
+    border-color: rgba(168, 85, 247, 0.5);
+    color: #c084fc;
+    animation: glow 3s ease-in-out infinite alternate;
+  }
+  @keyframes glow {
+    0% { box-shadow: 0 0 15px rgba(168, 85, 247, 0.1); }
+    100% { box-shadow: 0 0 25px rgba(168, 85, 247, 0.2); }
+  }
+
+  /* Stop button */
+  .stop-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: rgba(239, 68, 68, 0.1);
+    color: rgba(239, 68, 68, 0.6);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .stop-btn:hover {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+  }
+
+  /* Pro badge */
+  .pro-badge {
+    position: absolute;
+    top: -4px; right: -4px;
+    background: linear-gradient(135deg, #f59e0b, #f97316);
+    color: #000;
+    font-size: 8px;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: auto;
+    padding: 16px;
+    text-align: center;
+    font-size: 10px;
+    color: rgba(255,255,255,0.2);
+  }
+  .footer a {
+    color: rgba(255,255,255,0.3);
+    text-decoration: none;
+  }
+  .footer a:hover { color: rgba(255,255,255,0.5); }
+
+  /* Upgrade banner */
+  .upgrade-banner {
+    display: none;
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(249, 115, 22, 0.08));
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    margin-bottom: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .upgrade-banner:hover {
+    border-color: rgba(245, 158, 11, 0.4);
+    transform: translateY(-1px);
+  }
+  .upgrade-banner.show { display: block; }
+  .upgrade-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #f59e0b;
+    margin-bottom: 2px;
+  }
+  .upgrade-desc {
+    font-size: 10px;
+    color: rgba(255,255,255,0.4);
+  }
+
+  /* Install helper overlay */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(10px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .overlay.show { display: flex; }
+  .overlay-card {
+    background: #1e1e2e;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 30px;
+    text-align: center;
+    max-width: 320px;
+    width: 90%;
+  }
+  .overlay-card h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .overlay-card p {
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  .overlay-btn {
+    padding: 10px 24px;
+    border-radius: 8px;
+    border: none;
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    color: #fff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .overlay-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+  /* Fade transitions */
+  .fade-in { animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 </head>
 <body>
-<div class="container">
-  <h1>🌙 Sleep Control</h1>
-  <p class="sub">Keep your Mac awake — even with lid closed</p>
-  <div class="timer" id="timer">--:--</div>
-  <div class="row">
-    <button class="btn btn-primary" onclick="disable(1800)">30 min</button>
-    <button class="btn btn-primary" onclick="disable(3600)">1 hour</button>
-    <button class="btn btn-primary" onclick="disable(7200)">2 hours</button>
+
+<!-- Install helper overlay -->
+<div class="overlay" id="installOverlay">
+  <div class="overlay-card">
+    <div style="font-size:32px;margin-bottom:12px">&#x26A1;</div>
+    <h2>One-Time Setup</h2>
+    <p>LidAjar needs a small helper to control sleep settings. You'll be prompted for your password once.</p>
+    <button class="overlay-btn" onclick="installHelper()">Install Helper</button>
   </div>
-  <div class="row">
-    <button class="btn btn-primary" onclick="disable(14400)">4 hours</button>
-    <button class="btn btn-primary" onclick="disable(28800)">8 hours</button>
-    <button class="btn btn-danger" onclick="enableNow()">Stop</button>
-  </div>
-  <div class="status" id="status">Checking...</div>
 </div>
+
+<div class="app">
+  <!-- Header -->
+  <div class="logo">
+    <div class="logo-icon">&#x26A1;</div>
+    <span class="logo-text">LidAjar</span>
+  </div>
+  <div class="tagline">Your Mac stays awake. Lid closed or not.</div>
+
+  <!-- Timer Ring -->
+  <div class="timer-wrap">
+    <svg class="timer-ring" viewBox="0 0 180 180">
+      <defs>
+        <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#6366f1"/>
+          <stop offset="100%" stop-color="#a855f7"/>
+        </linearGradient>
+      </defs>
+      <circle class="timer-ring-bg" cx="90" cy="90" r="80"/>
+      <circle class="timer-ring-progress" id="timerRing" cx="90" cy="90" r="80"/>
+    </svg>
+    <div class="timer-center">
+      <div class="timer-value" id="timer">--:--</div>
+      <div class="timer-label" id="timerLabel">ready</div>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-pill" id="statusPill">
+    <div class="status-dot"></div>
+    <span id="statusText">Sleep normal</span>
+  </div>
+
+  <!-- Upgrade banner (shown when free user hits limit) -->
+  <div class="upgrade-banner" id="upgradeBanner" onclick="openUpgrade()">
+    <div class="upgrade-title">&#x2B50; Upgrade to Pro</div>
+    <div class="upgrade-desc">Unlock unlimited sessions &amp; forever mode</div>
+  </div>
+
+  <!-- Presets -->
+  <div class="presets">
+    <button class="preset" data-secs="1800" onclick="start(1800)">
+      <span class="preset-time">30m</span>
+    </button>
+    <button class="preset" data-secs="3600" onclick="start(3600)">
+      <span class="preset-time">1h</span>
+    </button>
+    <button class="preset" data-secs="7200" onclick="start(7200)">
+      <span class="preset-time">2h</span>
+    </button>
+    <button class="preset" data-secs="14400" onclick="start(14400)">
+      <span class="preset-time">4h</span>
+      <span class="pro-badge">PRO</span>
+    </button>
+    <button class="preset" data-secs="28800" onclick="start(28800)">
+      <span class="preset-time">8h</span>
+      <span class="pro-badge">PRO</span>
+    </button>
+    <button class="preset" data-secs="43200" onclick="start(43200)">
+      <span class="preset-time">12h</span>
+      <span class="pro-badge">PRO</span>
+    </button>
+  </div>
+
+  <!-- Forever -->
+  <button class="forever-btn" id="foreverBtn" onclick="start(0)">
+    &#x221E; &nbsp;FOREVER MODE &nbsp;<span style="font-size:10px;opacity:0.5">PRO</span>
+  </button>
+
+  <!-- Stop -->
+  <button class="stop-btn" onclick="stop()">Restore Sleep</button>
+
+  <div class="footer">
+    LidAjar v1.0 &mdash; <a href="#" onclick="openUpgrade()">Upgrade</a>
+  </div>
+</div>
+
 <script>
-const $ = id => document.getElementById(id)
-let running = false
+const $ = id => document.getElementById(id);
+let running = false;
+let isPro = false;
+let totalSecs = 0;
+let forever = false;
+
+// Ring math
+const CIRC = 2 * Math.PI * 80; // ~502
+const ring = $('timerRing');
+
+function setRing(pct) {
+  ring.style.strokeDashoffset = CIRC - (CIRC * Math.min(pct, 1));
+}
 
 function fmt(s) {
-  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60
-  return h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${m}:${String(sec).padStart(2,'0')}`
+  if (s < 0) s = 0;
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  return `${m}:${String(sec).padStart(2, '0')}`;
 }
 
-async function disable(secs) {
-  const r = await window.sleep.disable(secs)
-  if (r.ok) { running = true; $('status').textContent = 'Sleep disabled — lid-close safe'; $('status').className = 'status active' }
-  else alert('Failed: ' + r.error)
+function setActive(seconds) {
+  document.querySelectorAll('.preset').forEach(b => {
+    b.classList.toggle('selected', parseInt(b.dataset.secs) === seconds);
+  });
+  $('foreverBtn').classList.toggle('active', seconds === 0);
 }
 
-async function enableNow() {
-  const r = await window.sleep.enable()
-  if (r.ok) { running = false; $('timer').textContent = '--:--'; $('status').textContent = 'Sleep restored'; $('status').className = 'status' }
+async function start(secs) {
+  // Check pro for >2h and forever
+  if (!isPro && (secs > 7200 || secs === 0)) {
+    $('upgradeBanner').classList.add('show');
+    return;
+  }
+
+  totalSecs = secs;
+  forever = secs === 0;
+  const r = await window.lidajar.start(secs);
+  if (r.ok) {
+    running = true;
+    setActive(secs);
+    $('statusPill').classList.add('active');
+    $('statusText').textContent = forever ? 'Sleep disabled — forever' : 'Sleep disabled';
+    $('timerLabel').textContent = forever ? 'forever' : 'remaining';
+    if (!forever) $('timer').textContent = fmt(secs);
+    else $('timer').textContent = '∞';
+  }
 }
 
-window.sleep.onTick(n => { if (running) { $('timer').textContent = fmt(n); $('status').textContent = `Sleep disabled — ${fmt(n)} remaining` } })
-window.sleep.onRestored(() => { running = false; $('timer').textContent = '--:--'; $('status').textContent = 'Auto-restored to normal sleep'; $('status').className = 'status' })
-window.sleep.status().then(s => {
-  if (s.disabled && s.remaining>0) { running = true; $('timer').textContent = fmt(s.remaining); $('status').textContent = 'Sleep disabled'; $('status').className = 'status active' }
-  else $('status').textContent = 'Sleep normal'
-})
+async function stop() {
+  const r = await window.lidajar.stop();
+  if (r.ok) {
+    running = false;
+    forever = false;
+    $('timer').textContent = '--:--';
+    $('timerLabel').textContent = 'ready';
+    setRing(0);
+    $('statusPill').classList.remove('active');
+    $('statusText').textContent = 'Sleep restored';
+    document.querySelectorAll('.preset').forEach(b => b.classList.remove('selected'));
+    $('foreverBtn').classList.remove('active');
+  }
+}
+
+function openUpgrade() {
+  window.lidajar.upgrade();
+}
+
+async function installHelper() {
+  const r = await window.lidajar.installHelper();
+  if (r.ok) {
+    $('installOverlay').classList.remove('show');
+    $('statusText').textContent = 'Ready';
+  }
+}
+
+// IPC listeners
+window.lidajar.onTick((n) => {
+  if (!running) return;
+  if (forever) {
+    $('timer').textContent = '∞';
+  } else {
+    $('timer').textContent = fmt(n);
+    setRing(1 - (n / totalSecs));
+    $('statusText').textContent = `Sleep disabled — ${fmt(n)} left`;
+  }
+});
+
+window.lidajar.onRestored(() => {
+  running = false;
+  forever = false;
+  $('timer').textContent = '--:--';
+  $('timerLabel').textContent = 'ready';
+  setRing(0);
+  $('statusPill').classList.remove('active');
+  $('statusText').textContent = 'Auto-restored';
+  document.querySelectorAll('.preset').forEach(b => b.classList.remove('selected'));
+  $('foreverBtn').classList.remove('active');
+});
+
+window.lidajar.onHelperNeeded(() => {
+  $('installOverlay').classList.add('show');
+});
+
+window.lidajar.onProStatus((pro) => {
+  isPro = pro;
+  if (pro) {
+    $('upgradeBanner').classList.remove('show');
+    document.querySelectorAll('.pro-badge').forEach(b => b.style.display = 'none');
+  }
+});
+
+// Init
+window.lidajar.status().then(s => {
+  if (s.helperInstalled === false) {
+    $('installOverlay').classList.add('show');
+  }
+  if (s.disabled && s.remaining > 0) {
+    running = true;
+    totalSecs = s.remaining + (s.elapsed || 0);
+    $('timer').textContent = fmt(s.remaining);
+    $('timerLabel').textContent = 'remaining';
+    setRing(s.remaining / totalSecs);
+    $('statusPill').classList.add('active');
+    $('statusText').textContent = `Sleep disabled — ${fmt(s.remaining)} left`;
+  } else if (s.disabled) {
+    running = true;
+    forever = true;
+    $('timer').textContent = '∞';
+    $('timerLabel').textContent = 'forever';
+    $('statusPill').classList.add('active');
+    $('statusText').textContent = 'Sleep disabled — forever';
+    $('foreverBtn').classList.add('active');
+  }
+  window.lidajar.isPro().then(p => {
+    isPro = p;
+    if (!p) $('upgradeBanner').classList.add('show');
+  });
+});
 </script>
 </body>
 </html>

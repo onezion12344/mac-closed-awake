@@ -1,10 +1,15 @@
 {
-  "name": "sleep-control",
+  "name": "lidajar",
   "version": "1.0.0",
-  "description": "One-click Mac sleep prevention — keeps Mac awake even with lid closed",
+  "description": "Your Mac stays awake — lid closed or not. No sleep, ever.",
   "main": "main.js",
   "author": "Harry Huang <onezion12344@gmail.com>",
   "license": "MIT",
+  "homepage": "https://lidajar.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/onezion12344/lidajar"
+  },
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --mac",
@@ -12,8 +17,8 @@
     "dist": "electron-builder --mac --publish never"
   },
   "build": {
-    "appId": "com.onezion.sleep-control",
-    "productName": "Sleep Control",
+    "appId": "com.lidajar.app",
+    "productName": "LidAjar",
     "mac": {
       "category": "public.app-category.utilities",
       "target": ["dmg", "zip"],
