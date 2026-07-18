@@ -2,6 +2,12 @@
 
 Your Mac stays awake. Lid closed or not. No sleep, ever.
 
+## Why?
+
+You're vibe coding with Claude Code, Cursor, or Copilot. A 2-hour build is running. You close your lid to go grab coffee. **Everything dies.**
+
+Not anymore.
+
 ## Features
 
 - ⚡ **Lid-close safe** — stays awake even when MacBook lid is closed
@@ -10,7 +16,14 @@ Your Mac stays awake. Lid closed or not. No sleep, ever.
 - 🔄 **Auto-restore** — sleep re-enabled automatically when timer ends
 - 🪄 **Menu bar app** — lives in tray, stays out of your way
 - 🔐 **No password prompts** — install helper once, done forever
-- 💳 **Pro tier** — unlock unlimited sessions with one-time purchase
+
+## Perfect for
+
+- **Vibe coding sessions** — Claude Code, Cursor, Copilot running overnight
+- **Long builds** — Xcode, Gradle, CMake compiling while you sleep
+- **Deployments** — Vercel, Railway, Cloudflare deploys mid-lid-close
+- **Training runs** — Local LLM fine-tuning, model training
+- **Downloads** — Large files transferring, can't afford sleep interruption
 
 ## How it works
 
@@ -23,13 +36,13 @@ A small privileged helper runs as root via launchd, listening on a Unix socket. 
 
 ## Install
 
-Download the latest `.dmg` from [Releases](https://github.com/onezion12344/mca/releases).
+Download the latest `.dmg` from [Releases](https://github.com/onezion12344/mac-closed-awake/releases).
 
 Or build from source:
 
 ```bash
-git clone https://github.com/onezion12344/mca.git
-cd mca
+git clone https://github.com/onezion12344/mac-closed-awake.git
+cd mac-closed-awake
 npm install
 npm start
 ```
