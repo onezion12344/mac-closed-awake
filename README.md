@@ -1,8 +1,10 @@
 # MacClosedAwake
 
-Your Mac stays awake. Lid closed or not. No sleep, ever.
+<p align="center">
+  <img src="icon.svg" width="128" height="128" alt="MacClosedAwake icon">
+</p>
 
-![MacClosedAwake](landing/screenshot-hero.png)
+<h3 align="center">Your Mac stays awake. Lid closed or not. No sleep, ever.</h3>
 
 ## Why?
 
