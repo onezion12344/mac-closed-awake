@@ -36,9 +36,18 @@ A small privileged helper runs as root via launchd, listening on a Unix socket. 
 
 ## Install
 
+### Homebrew (recommended)
+
+```bash
+brew tap onezion12344/mac-closed-awake
+brew install --cask mac-closed-awake
+```
+
+### DMG
+
 Download the latest `.dmg` from [Releases](https://github.com/onezion12344/mac-closed-awake/releases).
 
-Or build from source:
+### Build from source
 
 ```bash
 git clone https://github.com/onezion12344/mac-closed-awake.git

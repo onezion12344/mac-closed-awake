@@ -23,6 +23,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Generate SHA256 for DMG
+        id: sha
+        run: |
+          DMG=$(ls dist/*.dmg | head -1)
+          HASH=$(shasum -a 256 "$DMG" | awk '{print $1}')
+          echo "dmg_path=$DMG" >> $GITHUB_OUTPUT
+          echo "sha256=$HASH" >> $GITHUB_OUTPUT
+          echo "DMG: $DMG"
+          echo "SHA256: $HASH"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -30,7 +40,13 @@ jobs:
           path: |
             dist/*.dmg
             dist/*.zip
+            ${{ steps.sha.outputs.dmg_path }}
           if-no-files-found: error
+
+      - name: Print SHA256
+        run: |
+          echo "SHA256: ${{ steps.sha.outputs.sha256 }}"
+          echo "Download: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/MacClosedAwake-${{ github.ref_name }}.dmg"
 
   release:
     needs: build
