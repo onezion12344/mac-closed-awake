@@ -1,5 +1,5 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, shell, dialog } = require('electron')
-const { exec, spawn } = require('child_process')
+const { exec, spawn, execSync } = require('child_process')
 const path = require('path')
 const fs = require('fs')
 const net = require('net')
@@ -9,7 +9,12 @@ const https = require('https')
 // Set these after creating your product on lemonsqueezy.com
 const LEMON_STORE_ID = '' // e.g. '12345'
 const LEMON_VARIANT_ID = '' // e.g. '67890' — the Pro variant
-const LEMON_API_KEY = '' // Your Lemon Squeezy API key
+
+function getLemonApiKey() {
+  try {
+    return execSync('security find-generic-password -s "lidajar-api-key" -w').toString().trim()
+  } catch { return '' }
+}
 
 let win, tray
 let restoreTimer = null
@@ -207,7 +212,7 @@ function lemonRequest(urlPath, method = 'GET', body = null) {
       path: urlPath,
       method,
       headers: {
-        'Authorization': `Bearer ${LEMON_API_KEY}`,
+        'Authorization': `Bearer ${getLemonApiKey()}`,
         'Accept': 'application/vnd.api+json',
         'Content-Type': 'application/vnd.api+json',
       },

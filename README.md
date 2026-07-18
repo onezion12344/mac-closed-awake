@@ -6,6 +6,10 @@
 
 <h3 align="center">Your Mac stays awake. Lid closed or not. No sleep, ever.</h3>
 
+<p align="center">
+  <img src="landing/demo.gif" alt="MacClosedAwake Demo" width="400">
+</p>
+
 ## Why?
 
 You're vibe coding with Claude Code, Cursor, or Copilot. A 2-hour build is running. You close your lid to go grab coffee. **Everything dies.**
