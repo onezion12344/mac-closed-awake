@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1200px;
+    height: 630px;
+    background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0f0f1a 100%);
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  body::before {
+    content: '';
+    position: absolute;
+    top: -100px; left: 50%;
+    transform: translateX(-50%);
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 60%);
+  }
+  .content {
+    text-align: center;
+    z-index: 1;
+    padding: 60px;
+  }
+  .icon {
+    width: 72px; height: 72px;
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    margin: 0 auto 32px;
+    box-shadow: 0 8px 32px rgba(99,102,241,0.3);
+  }
+  h1 {
+    font-size: 56px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -2px;
+    margin-bottom: 20px;
+  }
+  h1 .g {
+    background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .sub {
+    font-size: 20px;
+    color: rgba(255,255,255,0.45);
+    max-width: 500px;
+    margin: 0 auto 32px;
+    line-height: 1.5;
+  }
+  .tags {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+  .tag {
+    padding: 8px 20px;
+    border-radius: 100px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.6);
+  }
+</style>
+</head>
+<body>
+  <div class="content">
+    <div class="icon">⚡</div>
+    <h1>Your Mac stays <span class="g">awake.</span><br>Lid closed or not.</h1>
+    <p class="sub">Close your lid. Your builds keep compiling. Your vibe coding session never stops.</p>
+    <div class="tags">
+      <span class="tag">macOS</span>
+      <span class="tag">Lid-Close Safe</span>
+      <span class="tag">Homebrew</span>
+      <span class="tag">MIT License</span>
+    </div>
+  </div>
+</body>
+</html>

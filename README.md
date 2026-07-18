@@ -2,6 +2,8 @@
 
 Your Mac stays awake. Lid closed or not. No sleep, ever.
 
+![MacClosedAwake](landing/screenshot-hero.png)
+
 ## Why?
 
 You're vibe coding with Claude Code, Cursor, or Copilot. A 2-hour build is running. You close your lid to go grab coffee. **Everything dies.**

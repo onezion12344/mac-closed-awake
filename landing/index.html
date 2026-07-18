@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MacClosedAwake — Your Mac stays awake. Lid closed or not.</title>
+<meta name="description" content="Keep your Mac awake even with the lid closed. Perfect for vibe coding, long builds, and overnight deployments.">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #0a0a0f;
+    color: #fff;
+    overflow-x: hidden;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 80px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 800px;
+    background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 16px;
+    border-radius: 100px;
+    background: rgba(99,102,241,0.1);
+    border: 1px solid rgba(99,102,241,0.2);
+    font-size: 13px;
+    font-weight: 500;
+    color: #818cf8;
+    margin-bottom: 32px;
+  }
+
+  h1 {
+    font-size: clamp(48px, 8vw, 80px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -2px;
+    margin-bottom: 24px;
+    max-width: 800px;
+  }
+
+  h1 .gradient {
+    background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    font-size: 18px;
+    color: rgba(255,255,255,0.5);
+    max-width: 500px;
+    line-height: 1.6;
+    margin-bottom: 40px;
+  }
+
+  .cta-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+
+  .btn {
+    padding: 14px 28px;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    color: #fff;
+    box-shadow: 0 4px 24px rgba(99,102,241,0.3);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(99,102,241,0.4); }
+
+  .btn-secondary {
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.8);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .btn-secondary:hover { background: rgba(255,255,255,0.1); }
+
+  .btn-homebrew {
+    background: rgba(245,158,11,0.1);
+    color: #f59e0b;
+    border: 1px solid rgba(245,158,11,0.2);
+  }
+  .btn-homebrew:hover { background: rgba(245,158,11,0.15); }
+
+  .install-cmd {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    color: rgba(255,255,255,0.35);
+    background: rgba(255,255,255,0.03);
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.06);
+    margin-top: 16px;
+  }
+
+  /* ── App Screenshot ── */
+  .screenshot-wrap {
+    margin-top: 60px;
+    position: relative;
+    max-width: 440px;
+  }
+
+  .app-mockup {
+    width: 380px;
+    background: linear-gradient(135deg, #0f0f1a, #1a1a2e);
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+    padding: 40px 30px 30px;
+    text-align: center;
+  }
+
+  .mock-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .mock-logo-icon {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  .mock-logo-text { font-size: 18px; font-weight: 700; }
+
+  .mock-tagline {
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 24px;
+  }
+
+  .mock-ring {
+    width: 150px; height: 150px;
+    margin: 0 auto 20px;
+    position: relative;
+  }
+  .mock-ring svg { transform: rotate(-90deg); }
+  .mock-ring-bg { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 5; }
+  .mock-ring-progress {
+    fill: none;
+    stroke: url(#mockGrad);
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-dasharray: 408;
+    stroke-dashoffset: 102;
+  }
+  .mock-ring-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .mock-timer { font-size: 32px; font-weight: 300; font-variant-numeric: tabular-nums; }
+  .mock-label { font-size: 9px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 1.5px; }
+
+  .mock-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 12px;
+    border-radius: 16px;
+    background: rgba(34,197,94,0.1);
+    border: 1px solid rgba(34,197,94,0.2);
+    font-size: 10px;
+    font-weight: 500;
+    color: #22c55e;
+    margin-bottom: 20px;
+  }
+  .mock-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 6px rgba(34,197,94,0.5);
+  }
+
+  .mock-presets {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .mock-btn {
+    padding: 10px 0;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.6);
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .mock-btn.selected {
+    background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.2));
+    border-color: rgba(99,102,241,0.3);
+    color: #fff;
+  }
+
+  .mock-forever {
+    padding: 10px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(168,85,247,0.1), rgba(99,102,241,0.1));
+    border: 1px solid rgba(168,85,247,0.2);
+    color: #a855f7;
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  /* ── Features ── */
+  .features {
+    padding: 120px 24px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  .features-title {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: #818cf8;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+  }
+
+  .features h2 {
+    text-align: center;
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    margin-bottom: 60px;
+  }
+
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+  }
+
+  .feature-card {
+    padding: 32px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    transition: all 0.3s;
+  }
+  .feature-card:hover {
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.1);
+    transform: translateY(-2px);
+  }
+
+  .feature-icon {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin-bottom: 16px;
+  }
+
+  .feature-card h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .feature-card p {
+    font-size: 14px;
+    color: rgba(255,255,255,0.45);
+    line-height: 1.6;
+  }
+
+  /* ── Use Cases ── */
+  .usecases {
+    padding: 80px 24px 120px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .usecases h2 {
+    text-align: center;
+    font-size: 36px;
+    font-weight: 700;
+    margin-bottom: 48px;
+    letter-spacing: -1px;
+  }
+
+  .usecase-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .usecase {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 24px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .usecase-icon { font-size: 24px; flex-shrink: 0; }
+
+  .usecase-text h4 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .usecase-text p {
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+  }
+
+  /* ── Install ── */
+  .install {
+    padding: 120px 24px;
+    text-align: center;
+  }
+
+  .install h2 {
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    margin-bottom: 16px;
+  }
+
+  .install .subtitle { margin: 0 auto 48px; }
+
+  .install-methods {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+  }
+
+  .install-card {
+    padding: 24px 32px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    text-align: center;
+    min-width: 220px;
+  }
+
+  .install-card h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .install-card code {
+    display: block;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    color: #818cf8;
+    background: rgba(99,102,241,0.08);
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-top: 8px;
+  }
+
+  /* ── Footer ── */
+  footer {
+    padding: 40px 24px;
+    text-align: center;
+    font-size: 13px;
+    color: rgba(255,255,255,0.25);
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+  footer a { color: rgba(255,255,255,0.4); text-decoration: none; }
+  footer a:hover { color: rgba(255,255,255,0.6); }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    .app-mockup { width: 320px; padding: 30px 20px 20px; }
+    .mock-presets { gap: 4px; }
+    .feature-grid { grid-template-columns: 1fr; }
+    .install-methods { flex-direction: column; align-items: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="badge">⚡ macOS Utility</div>
+  <h1>Your Mac stays <span class="gradient">awake.</span><br>Lid closed or not.</h1>
+  <p class="subtitle">Close your lid. Your builds keep compiling. Your deploys keep running. Your vibe coding session never stops.</p>
+
+  <div class="cta-row">
+    <a href="https://github.com/onezion12344/mac-closed-awake/releases" class="btn btn-primary">Download DMG</a>
+    <a href="https://github.com/onezion12344/mac-closed-awake" class="btn btn-secondary">View on GitHub</a>
+  </div>
+
+  <div class="install-cmd">brew install --cask mac-closed-awake</div>
+
+  <!-- App Screenshot Mockup -->
+  <div class="screenshot-wrap">
+    <div class="app-mockup">
+      <div class="mock-logo">
+        <div class="mock-logo-icon">⚡</div>
+        <span class="mock-logo-text">MacClosedAwake</span>
+      </div>
+      <div class="mock-tagline">Your Mac stays awake. Lid closed or not.</div>
+
+      <div class="mock-ring">
+        <svg viewBox="0 0 150 150" width="150" height="150">
+          <defs>
+            <linearGradient id="mockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#6366f1"/>
+              <stop offset="100%" stop-color="#a855f7"/>
+            </linearGradient>
+          </defs>
+          <circle class="mock-ring-bg" cx="75" cy="75" r="65"/>
+          <circle class="mock-ring-progress" cx="75" cy="75" r="65"/>
+        </svg>
+        <div class="mock-ring-center">
+          <div class="mock-timer">1:45:00</div>
+          <div class="mock-label">remaining</div>
+        </div>
+      </div>
+
+      <div class="mock-status">
+        <div class="mock-dot"></div>
+        Sleep disabled — 1:45:00 left
+      </div>
+
+      <div class="mock-presets">
+        <div class="mock-btn">30m</div>
+        <div class="mock-btn">1h</div>
+        <div class="mock-btn selected">2h</div>
+        <div class="mock-btn">4h <span style="font-size:8px;opacity:0.4">PRO</span></div>
+        <div class="mock-btn">8h <span style="font-size:8px;opacity:0.4">PRO</span></div>
+        <div class="mock-btn">12h <span style="font-size:8px;opacity:0.4">PRO</span></div>
+      </div>
+      <div class="mock-forever">∞ FOREVER MODE</div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="features">
+  <div class="features-title">Features</div>
+  <h2>Simple. Powerful. Always awake.</h2>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(99,102,241,0.1)">⚡</div>
+      <h3>Lid-Close Safe</h3>
+      <p>The ONLY method that truly prevents sleep on Apple Silicon Macs. Even with the lid closed.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(168,85,247,0.1)">♾️</div>
+      <h3>Forever Mode</h3>
+      <p>No timer. No limits. Stays awake until you manually stop. Perfect for overnight runs.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(34,197,94,0.1)">🔄</div>
+      <h3>Auto-Restore</h3>
+      <p>Set a timer, forget about it. Sleep automatically re-enables when time's up.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(245,158,11,0.1)">🔐</div>
+      <h3>No Password Prompts</h3>
+      <p>Install the helper once. Done forever. No "enter your password" every time.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(236,72,153,0.1)">🪄</div>
+      <h3>Menu Bar App</h3>
+      <p>Lives in your tray. Minimal footprint. Always accessible, never in your way.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(59,130,246,0.1)">⏱️</div>
+      <h3>Quick Presets</h3>
+      <p>30min, 1h, 2h, 4h, 8h, 12h. One click. That's it.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Use Cases -->
+<section class="usecases">
+  <h2>Built for people who build things</h2>
+  <div class="usecase-list">
+    <div class="usecase">
+      <div class="usecase-icon">🧑‍💻</div>
+      <div class="usecase-text">
+        <h4>Vibe Coding</h4>
+        <p>Claude Code, Cursor, Copilot running for hours. Close your lid, take a break, nothing dies.</p>
+      </div>
+    </div>
+    <div class="usecase">
+      <div class="usecase-icon">🔨</div>
+      <div class="usecase-text">
+        <h4>Long Builds</h4>
+        <p>Xcode, Gradle, CMake compiling. Don't let a lid close kill a 2-hour build.</p>
+      </div>
+    </div>
+    <div class="usecase">
+      <div class="usecase-icon">🚀</div>
+      <div class="usecase-text">
+        <h4>Deployments</h4>
+        <p>Vercel, Railway, Cloudflare deploys mid-lid-close? Not anymore.</p>
+      </div>
+    </div>
+    <div class="usecase">
+      <div class="usecase-icon">🧠</div>
+      <div class="usecase-text">
+        <h4>Model Training</h4>
+        <p>Local LLM fine-tuning, training runs that take hours. Keep them alive.</p>
+      </div>
+    </div>
+    <div class="usecase">
+      <div class="usecase-icon">📥</div>
+      <div class="usecase-text">
+        <h4>Large Downloads</h4>
+        <p>Datasets, VMs, large repos. Can't afford sleep interruption.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Install -->
+<section class="install">
+  <h2>Get started in 10 seconds</h2>
+  <p class="subtitle">Three ways to install. Pick whichever you prefer.</p>
+
+  <div class="install-methods">
+    <div class="install-card">
+      <h4>🍫 Homebrew</h4>
+      <code>brew install --cask mac-closed-awake</code>
+    </div>
+    <div class="install-card">
+      <h4>💿 DMG</h4>
+      <code>Download from GitHub Releases</code>
+    </div>
+    <div class="install-card">
+      <h4>🔧 From Source</h4>
+      <code>git clone &amp;&amp; npm start</code>
+    </div>
+  </div>
+
+  <a href="https://github.com/onezion12344/mac-closed-awake/releases" class="btn btn-primary">Download Now</a>
+</section>
+
+<!-- Footer -->
+<footer>
+  <p>MacClosedAwake · Built by <a href="https://github.com/onezion12344">Harry Huang</a> · MIT License</p>
+</footer>
+
+</body>
+</html>
