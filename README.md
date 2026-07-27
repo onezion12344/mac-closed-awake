@@ -4,7 +4,9 @@
   <img src="icon.svg" width="128" height="128" alt="MacClosedAwake icon">
 </p>
 
-<h3 align="center">Your Mac stays awake. Lid closed or not. No sleep, ever.</h3>
+<h3 align="center">Close the lid. Stay awake.</h3>
+
+<p align="center">The yellow sheep keeps your Mac running — lid closed, no external display, no sleep.</p>
 
 <p align="center">
   <img src="landing/demo.gif" alt="MacClosedAwake Demo" width="400">

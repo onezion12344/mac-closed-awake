@@ -3,596 +3,698 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MacClosedAwake — Your Mac stays awake. Lid closed or not.</title>
-<meta name="description" content="Keep your Mac awake even with the lid closed. Perfect for vibe coding, long builds, and overnight deployments.">
+<title>MacClosedAwake — Close the lid. Stay awake.</title>
+<meta name="description" content="Close the lid. Stay awake. The yellow sheep keeps your Mac running — builds, deploys, and vibe coding sessions survive every lid close.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="MacClosedAwake — Close the lid. Stay awake.">
+<meta property="og:description" content="Close the lid. Stay awake. The yellow sheep keeps your Mac running — builds, deploys, and vibe coding sessions survive every lid close.">
+<meta property="og:image" content="https://onezion12344.github.io/mac-closed-awake/og-image.png">
+<meta property="og:url" content="https://onezion12344.github.io/mac-closed-awake/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MacClosedAwake — Close the lid. Stay awake.">
+<meta name="twitter:description" content="Close the lid. Stay awake. The yellow sheep keeps your Mac running — builds, deploys, and vibe coding sessions survive every lid close.">
+<meta name="twitter:image" content="https://onezion12344.github.io/mac-closed-awake/og-image.png">
+<link rel="icon" type="image/png" href="assets/app-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  :root {
+    --bg:#0d1b2a;
+    --surface:#13233a;
+    --card:#162236;
+    --border:#1e3050;
+    --cream:#f5eeda;
+    --orange:#e8935a;
+    --gold:#f0c04a;
+    --teal:#3a8a8a;
+    --muted:#8a9ab0;
+    --gradient: linear-gradient(135deg,#f0c04a,#e8935a);
+  }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
+  html { scroll-behavior: smooth; }
+
   body {
-    font-family: 'Inter', -apple-system, sans-serif;
-    background: #0a0a0f;
-    color: #fff;
+    font-family: 'Space Grotesk', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--cream);
     overflow-x: hidden;
+  }
+
+  .mono { font-family: 'JetBrains Mono', 'SF Mono', monospace; }
+
+  /* ── Nav ── */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 28px;
+    background: rgba(13,27,42,0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: var(--cream);
+  }
+  .nav-brand img {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    object-fit: cover;
+  }
+  .nav-brand span {
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: -0.3px;
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .nav-links a {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--gold); }
+
+  /* ── Ticker bands ── */
+  .ticker {
+    overflow: hidden;
+    white-space: nowrap;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    color: #0d1b2a;
+    padding: 9px 0;
+    user-select: none;
+  }
+  .ticker-gold   { background: var(--gold); }
+  .ticker-orange { background: var(--orange); }
+  .ticker-cream  { background: var(--cream); }
+
+  .ticker-track {
+    display: inline-flex;
+    animation: marquee-left 40s linear infinite;
+  }
+  .ticker-reverse .ticker-track { animation-name: marquee-right; }
+  .ticker-track span { padding-right: 48px; }
+
+  @keyframes marquee-left  { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  @keyframes marquee-right { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-track { animation: none; }
+    html { scroll-behavior: auto; }
   }
 
   /* ── Hero ── */
   .hero {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 48px;
     align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 80px 24px;
-    position: relative;
-    overflow: hidden;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 88px 28px 96px;
   }
 
-  .hero::before {
-    content: '';
-    position: absolute;
-    top: -200px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 800px;
-    height: 800px;
-    background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 60%);
-    pointer-events: none;
-  }
-
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 16px;
-    border-radius: 100px;
-    background: rgba(99,102,241,0.1);
-    border: 1px solid rgba(99,102,241,0.2);
-    font-size: 13px;
-    font-weight: 500;
-    color: #818cf8;
-    margin-bottom: 32px;
+  .hero-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: var(--gold);
+    margin-bottom: 20px;
   }
 
   h1 {
-    font-size: clamp(48px, 8vw, 80px);
-    font-weight: 800;
-    line-height: 1.05;
+    font-size: clamp(42px, 6.5vw, 72px);
+    font-weight: 700;
+    line-height: 1.04;
     letter-spacing: -2px;
     margin-bottom: 24px;
-    max-width: 800px;
   }
 
   h1 .gradient {
-    background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+    background: linear-gradient(135deg,#f0c04a,#e8935a);
     -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
     background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
   }
 
-  .subtitle {
-    font-size: 18px;
-    color: rgba(255,255,255,0.5);
-    max-width: 500px;
-    line-height: 1.6;
-    margin-bottom: 40px;
+  .cursor {
+    display: inline-block;
+    width: 0.55em;
+    height: 0.95em;
+    margin-left: 6px;
+    background: var(--gold);
+    vertical-align: -0.12em;
+    animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .cursor { animation: none; } }
+
+  .hero-sub {
+    font-size: 17px;
+    color: var(--muted);
+    line-height: 1.65;
+    max-width: 460px;
+    margin-bottom: 36px;
   }
 
   .cta-row {
     display: flex;
-    gap: 12px;
+    gap: 14px;
     flex-wrap: wrap;
-    justify-content: center;
-    margin-bottom: 16px;
   }
 
   .btn {
-    padding: 14px 28px;
-    border-radius: 12px;
-    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 26px;
+    border-radius: 14px;
+    font-family: 'Space Grotesk', sans-serif;
     font-size: 15px;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
     border: none;
   }
 
   .btn-primary {
-    background: linear-gradient(135deg, #6366f1, #a855f7);
-    color: #fff;
-    box-shadow: 0 4px 24px rgba(99,102,241,0.3);
+    background: linear-gradient(135deg,#f0c04a,#e8935a);
+    color: #0d1b2a;
+    box-shadow: 0 6px 28px rgba(240,192,74,0.28);
   }
-  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(99,102,241,0.4); }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 36px rgba(240,192,74,0.4); }
 
-  .btn-secondary {
-    background: rgba(255,255,255,0.06);
-    color: rgba(255,255,255,0.8);
-    border: 1px solid rgba(255,255,255,0.1);
-  }
-  .btn-secondary:hover { background: rgba(255,255,255,0.1); }
-
-  .btn-homebrew {
-    background: rgba(245,158,11,0.1);
-    color: #f59e0b;
-    border: 1px solid rgba(245,158,11,0.2);
-  }
-  .btn-homebrew:hover { background: rgba(245,158,11,0.15); }
-
-  .install-cmd {
-    font-family: 'SF Mono', 'Fira Code', monospace;
+  .btn-ghost {
+    background: transparent;
+    color: var(--cream);
+    border: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
     font-size: 13px;
-    color: rgba(255,255,255,0.35);
-    background: rgba(255,255,255,0.03);
-    padding: 8px 16px;
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.06);
-    margin-top: 16px;
+  }
+  .btn-ghost:hover { background: var(--surface); border-color: var(--teal); }
+
+  /* ── Hero mascot card ── */
+  .hero-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 18px;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.45), 0 0 60px rgba(240,192,74,0.07);
   }
 
-  /* ── App Screenshot ── */
-  .screenshot-wrap {
-    margin-top: 60px;
-    position: relative;
-    max-width: 440px;
-  }
-
-  .app-mockup {
-    width: 380px;
-    background: linear-gradient(135deg, #0f0f1a, #1a1a2e);
+  .hero-card-inner {
+    background: var(--cream);
     border-radius: 16px;
-    border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
-    padding: 40px 30px 30px;
+    overflow: hidden;
     text-align: center;
   }
-
-  .mock-logo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin-bottom: 4px;
+  .hero-card-inner img {
+    display: block;
+    width: 100%;
+    height: auto;
   }
-  .mock-logo-icon {
-    width: 28px; height: 28px;
-    background: linear-gradient(135deg, #6366f1, #a855f7);
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-  }
-  .mock-logo-text { font-size: 18px; font-weight: 700; }
-
-  .mock-tagline {
+  .hero-card-label {
+    font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
-    color: rgba(255,255,255,0.35);
-    margin-bottom: 24px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: #0d1b2a;
+    padding: 12px 16px 14px;
   }
 
-  .mock-ring {
-    width: 150px; height: 150px;
-    margin: 0 auto 20px;
-    position: relative;
-  }
-  .mock-ring svg { transform: rotate(-90deg); }
-  .mock-ring-bg { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 5; }
-  .mock-ring-progress {
-    fill: none;
-    stroke: url(#mockGrad);
-    stroke-width: 5;
-    stroke-linecap: round;
-    stroke-dasharray: 408;
-    stroke-dashoffset: 102;
-  }
-  .mock-ring-center {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-  }
-  .mock-timer { font-size: 32px; font-weight: 300; font-variant-numeric: tabular-nums; }
-  .mock-label { font-size: 9px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 1.5px; }
-
-  .mock-status {
-    display: inline-flex;
+  .hero-card-footer {
+    display: flex;
     align-items: center;
-    gap: 5px;
-    padding: 4px 12px;
-    border-radius: 16px;
-    background: rgba(34,197,94,0.1);
-    border: 1px solid rgba(34,197,94,0.2);
-    font-size: 10px;
-    font-weight: 500;
-    color: #22c55e;
-    margin-bottom: 20px;
-  }
-  .mock-dot {
-    width: 5px; height: 5px;
-    border-radius: 50%;
-    background: #22c55e;
-    box-shadow: 0 0 6px rgba(34,197,94,0.5);
-  }
-
-  .mock-presets {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    margin-bottom: 10px;
-  }
-  .mock-btn {
-    padding: 10px 0;
-    border-radius: 8px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.06);
-    color: rgba(255,255,255,0.6);
+    justify-content: space-between;
+    padding: 16px 8px 4px;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--muted);
   }
-  .mock-btn.selected {
-    background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.2));
-    border-color: rgba(99,102,241,0.3);
-    color: #fff;
+  .status-live { color: var(--cream); }
+  .dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--orange);
+    box-shadow: 0 0 10px rgba(232,147,90,0.7);
+    margin-right: 8px;
+    vertical-align: 1px;
   }
 
-  .mock-forever {
-    padding: 10px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, rgba(168,85,247,0.1), rgba(99,102,241,0.1));
-    border: 1px solid rgba(168,85,247,0.2);
-    color: #a855f7;
-    font-size: 11px;
+  /* ── Sections ── */
+  section { max-width: 1080px; margin: 0 auto; padding: 84px 28px; }
+
+  .kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
     font-weight: 600;
-    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: var(--gold);
+    margin-bottom: 14px;
+  }
+  .kicker.teal { color: var(--teal); }
+  .kicker.orange { color: var(--orange); }
+
+  h2 {
+    font-size: clamp(30px, 4.5vw, 42px);
+    font-weight: 700;
+    letter-spacing: -1.2px;
+    margin-bottom: 14px;
+  }
+
+  .section-sub {
+    font-size: 16px;
+    color: var(--muted);
+    line-height: 1.6;
+    max-width: 560px;
+    margin-bottom: 48px;
   }
 
   /* ── Features ── */
-  .features {
-    padding: 120px 24px;
-    max-width: 1000px;
-    margin: 0 auto;
-  }
-
-  .features-title {
-    text-align: center;
-    font-size: 14px;
-    font-weight: 600;
-    color: #818cf8;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    margin-bottom: 16px;
-  }
-
-  .features h2 {
-    text-align: center;
-    font-size: 40px;
-    font-weight: 700;
-    letter-spacing: -1px;
-    margin-bottom: 60px;
-  }
-
   .feature-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 24px;
+    gap: 20px;
   }
 
   .feature-card {
-    padding: 32px;
-    border-radius: 16px;
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.06);
-    transition: all 0.3s;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 28px;
+    transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
   }
   .feature-card:hover {
-    background: rgba(255,255,255,0.04);
-    border-color: rgba(255,255,255,0.1);
-    transform: translateY(-2px);
+    transform: translateY(-3px);
+    border-color: var(--gold);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.35), 0 0 30px rgba(240,192,74,0.08);
   }
 
   .feature-icon {
-    width: 48px; height: 48px;
+    width: 44px; height: 44px;
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
-    margin-bottom: 16px;
+    font-size: 20px;
+    margin-bottom: 18px;
+  }
+  .icon-gold   { background: rgba(240,192,74,0.14); }
+  .icon-orange { background: rgba(232,147,90,0.14); }
+  .icon-teal   { background: rgba(58,138,138,0.18); }
+
+  .feature-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    color: var(--muted);
+    margin-bottom: 8px;
   }
 
   .feature-card h3 {
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 600;
     margin-bottom: 8px;
   }
 
   .feature-card p {
     font-size: 14px;
-    color: rgba(255,255,255,0.45);
+    color: var(--muted);
     line-height: 1.6;
   }
 
-  /* ── Use Cases ── */
-  .usecases {
-    padding: 80px 24px 120px;
-    max-width: 900px;
-    margin: 0 auto;
-  }
-
-  .usecases h2 {
-    text-align: center;
-    font-size: 36px;
-    font-weight: 700;
-    margin-bottom: 48px;
-    letter-spacing: -1px;
-  }
-
-  .usecase-list {
+  .feature-card.with-mascot {
     display: flex;
     flex-direction: column;
-    gap: 16px;
   }
-
-  .usecase {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 20px 24px;
+  .feature-mascot {
+    width: 100%;
     border-radius: 12px;
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.05);
-  }
-
-  .usecase-icon { font-size: 24px; flex-shrink: 0; }
-
-  .usecase-text h4 {
-    font-size: 15px;
-    font-weight: 600;
-    margin-bottom: 2px;
-  }
-  .usecase-text p {
-    font-size: 13px;
-    color: rgba(255,255,255,0.4);
+    margin-top: 18px;
+    background: var(--cream);
+    display: block;
   }
 
   /* ── Install ── */
-  .install {
-    padding: 120px 24px;
-    text-align: center;
-  }
-
-  .install h2 {
-    font-size: 40px;
-    font-weight: 700;
-    letter-spacing: -1px;
-    margin-bottom: 16px;
-  }
-
-  .install .subtitle { margin: 0 auto 48px; }
-
-  .install-methods {
-    display: flex;
-    gap: 16px;
-    justify-content: center;
-    flex-wrap: wrap;
-    margin-bottom: 32px;
+  .install-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
   }
 
   .install-card {
-    padding: 24px 32px;
-    border-radius: 12px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.06);
-    text-align: center;
-    min-width: 220px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 26px;
   }
 
-  .install-card h4 {
-    font-size: 14px;
+  .install-card h3 {
+    font-size: 16px;
     font-weight: 600;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
-  .install-card code {
-    display: block;
-    font-family: 'SF Mono', 'Fira Code', monospace;
+  .install-card .method-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    margin-bottom: 10px;
+  }
+  .method-kicker.gold { color: var(--gold); }
+  .method-kicker.orange { color: var(--orange); }
+  .method-kicker.teal { color: var(--teal); }
+
+  .install-card p {
     font-size: 13px;
-    color: #818cf8;
-    background: rgba(99,102,241,0.08);
-    padding: 8px 12px;
-    border-radius: 6px;
-    margin-top: 8px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+
+  .code-block {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: var(--cream);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    white-space: pre;
+    display: block;
+  }
+  .code-block .c { color: var(--muted); }
+
+  .install-card a { color: var(--gold); text-decoration: none; }
+  .install-card a:hover { text-decoration: underline; }
+
+  /* ── Video / demo ── */
+  .video-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 14px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+  .video-wrap video {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+    background: var(--bg);
+  }
+
+  .demo-strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: center;
+    margin-top: 48px;
+  }
+  .demo-strip .gif-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 12px;
+  }
+  .demo-strip img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+  }
+  .demo-copy h3 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 10px;
+  }
+  .demo-copy p {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.65;
   }
 
   /* ── Footer ── */
   footer {
-    padding: 40px 24px;
-    text-align: center;
-    font-size: 13px;
-    color: rgba(255,255,255,0.25);
-    border-top: 1px solid rgba(255,255,255,0.05);
+    border-top: 1px solid var(--border);
+    padding: 36px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    max-width: 1080px;
+    margin: 0 auto;
   }
-  footer a { color: rgba(255,255,255,0.4); text-decoration: none; }
-  footer a:hover { color: rgba(255,255,255,0.6); }
+  .footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .footer-brand img {
+    width: 26px; height: 26px;
+    border-radius: 7px;
+  }
+  footer a { color: var(--gold); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  .footer-mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--muted);
+  }
 
   /* ── Responsive ── */
-  @media (max-width: 640px) {
-    .app-mockup { width: 320px; padding: 30px 20px 20px; }
-    .mock-presets { gap: 4px; }
-    .feature-grid { grid-template-columns: 1fr; }
-    .install-methods { flex-direction: column; align-items: center; }
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: 1fr; padding-top: 56px; }
+    .hero-card { max-width: 440px; margin: 0 auto; }
+    .demo-strip { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .nav-brand span { font-size: 15px; }
+    .nav-links { gap: 14px; }
+    .nav-links a { font-size: 10px; letter-spacing: 1px; }
+    .nav-links a.hide-sm { display: none; }
+    section { padding: 60px 20px; }
+    .hero { padding: 48px 20px 64px; gap: 36px; }
+    .cta-row .btn { width: 100%; justify-content: center; }
+    .ticker { font-size: 11px; letter-spacing: 2px; }
   }
 </style>
 </head>
 <body>
 
-<!-- Hero -->
-<section class="hero">
-  <div class="badge"><img src="../icon.svg" width="16" height="16" style="vertical-align:middle"> macOS Utility</div>
-  <h1>Your Mac stays <span class="gradient">awake.</span><br>Lid closed or not.</h1>
-  <p class="subtitle">Close your lid. Your builds keep compiling. Your deploys keep running. Your vibe coding session never stops.</p>
-
-  <div class="cta-row">
-    <a href="https://github.com/onezion12344/mac-closed-awake/releases" class="btn btn-primary">Download DMG</a>
-    <a href="https://github.com/onezion12344/mac-closed-awake" class="btn btn-secondary">View on GitHub</a>
+<!-- Nav -->
+<nav>
+  <a class="nav-brand" href="#">
+    <img src="assets/mascot-icon.png" alt="MacClosedAwake yellow sheep mascot" width="32" height="32">
+    <span>MacClosedAwake</span>
+  </a>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#install">Install</a>
+    <a href="#video" class="hide-sm">Video</a>
+    <a href="https://github.com/onezion12344/mac-closed-awake">GitHub</a>
   </div>
+</nav>
 
-  <div class="install-cmd">brew install --cask mac-closed-awake</div>
+<!-- Ticker bands -->
+<div class="ticker ticker-gold" aria-hidden="true">
+  <div class="ticker-track">
+    <span>ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span><span>ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span><span>ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span><span>ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span><span>ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span><span>ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span>
+  </div>
+</div>
+<div class="ticker ticker-orange ticker-reverse" aria-hidden="true">
+  <div class="ticker-track">
+    <span>LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span><span>LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span><span>LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span><span>LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span><span>LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span><span>LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span>
+  </div>
+</div>
+<div class="ticker ticker-cream" aria-hidden="true">
+  <div class="ticker-track">
+    <span>BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span><span>BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span><span>BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span><span>BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span><span>BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span><span>BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span>
+  </div>
+</div>
 
-  <!-- App Screenshot Mockup -->
-  <div class="screenshot-wrap">
-    <div class="app-mockup">
-      <div class="mock-logo">
-        <img src="../icon.svg" width="28" height="28" style="border-radius:6px">
-        <span class="mock-logo-text">MacClosedAwake</span>
-      </div>
-      <div class="mock-tagline">Your Mac stays awake. Lid closed or not.</div>
-
-      <div class="mock-ring">
-        <svg viewBox="0 0 150 150" width="150" height="150">
-          <defs>
-            <linearGradient id="mockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#6366f1"/>
-              <stop offset="100%" stop-color="#a855f7"/>
-            </linearGradient>
-          </defs>
-          <circle class="mock-ring-bg" cx="75" cy="75" r="65"/>
-          <circle class="mock-ring-progress" cx="75" cy="75" r="65"/>
-        </svg>
-        <div class="mock-ring-center">
-          <div class="mock-timer">1:45:00</div>
-          <div class="mock-label">remaining</div>
-        </div>
-      </div>
-
-      <div class="mock-status">
-        <div class="mock-dot"></div>
-        Sleep disabled — 1:45:00 left
-      </div>
-
-      <div class="mock-presets">
-        <div class="mock-btn">30m</div>
-        <div class="mock-btn">1h</div>
-        <div class="mock-btn selected">2h</div>
-        <div class="mock-btn">4h <span style="font-size:8px;opacity:0.4">PRO</span></div>
-        <div class="mock-btn">8h <span style="font-size:8px;opacity:0.4">PRO</span></div>
-        <div class="mock-btn">12h <span style="font-size:8px;opacity:0.4">PRO</span></div>
-      </div>
-      <div class="mock-forever">∞ FOREVER MODE</div>
+<!-- Hero -->
+<header class="hero">
+  <div>
+    <div class="hero-kicker">macOS Menu Bar Utility</div>
+    <h1>Close the lid.<br><span class="gradient">Stay awake.</span><span class="cursor" aria-hidden="true"></span></h1>
+    <p class="hero-sub">The yellow sheep keeps your Mac running with the lid shut — builds keep compiling, deploys keep shipping, and your vibe coding session never dies.</p>
+    <div class="cta-row">
+      <a href="https://github.com/onezion12344/mac-closed-awake/releases/latest" class="btn btn-primary">Download for macOS</a>
+      <a href="#install" class="btn btn-ghost">$ brew install</a>
     </div>
   </div>
-</section>
+
+  <div class="hero-card">
+    <div class="hero-card-inner">
+      <img src="assets/mascot-hero.png" alt="Felt yellow sheep hugging a closed, glowing MacBook" width="800" height="800">
+      <div class="hero-card-label">Yellow Sheep · Keep Awake</div>
+    </div>
+    <div class="hero-card-footer">
+      <span class="status-live"><span class="dot"></span>Sleep Disabled</span>
+      <span>∞ Forever Mode</span>
+    </div>
+  </div>
+</header>
 
 <!-- Features -->
-<section class="features">
-  <div class="features-title">Features</div>
+<section id="features">
+  <div class="kicker">Features</div>
   <h2>Simple. Powerful. Always awake.</h2>
+  <p class="section-sub">One privileged helper, zero fuss. The only method that truly prevents sleep on Apple Silicon Macs — even with the lid closed.</p>
 
   <div class="feature-grid">
     <div class="feature-card">
-      <div class="feature-icon" style="background:rgba(99,102,241,0.1)">⚡</div>
+      <div class="feature-icon icon-gold">⚡</div>
+      <div class="feature-kicker">Core</div>
       <h3>Lid-Close Safe</h3>
-      <p>The ONLY method that truly prevents sleep on Apple Silicon Macs. Even with the lid closed.</p>
+      <p>The ONLY method that truly prevents sleep on Apple Silicon Macs. Even with the lid closed. No external display needed.</p>
     </div>
     <div class="feature-card">
-      <div class="feature-icon" style="background:rgba(168,85,247,0.1)">♾️</div>
+      <div class="feature-icon icon-orange">♾️</div>
+      <div class="feature-kicker">Mode</div>
       <h3>Forever Mode</h3>
       <p>No timer. No limits. Stays awake until you manually stop. Perfect for overnight runs.</p>
     </div>
     <div class="feature-card">
-      <div class="feature-icon" style="background:rgba(34,197,94,0.1)">🔄</div>
+      <div class="feature-icon icon-teal">🔄</div>
+      <div class="feature-kicker">Safety</div>
       <h3>Auto-Restore</h3>
       <p>Set a timer, forget about it. Sleep automatically re-enables when time's up.</p>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon" style="background:rgba(245,158,11,0.1)">🔐</div>
+    <div class="feature-card with-mascot">
+      <div class="feature-icon icon-gold">🔐</div>
+      <div class="feature-kicker">Setup</div>
       <h3>No Password Prompts</h3>
       <p>Install the helper once. Done forever. No "enter your password" every time.</p>
+      <img class="feature-mascot" src="assets/mascot-celebrate.png" alt="Yellow sheep giving a thumbs-up next to a success checkmark" loading="lazy" width="800" height="800">
+    </div>
+    <div class="feature-card with-mascot">
+      <div class="feature-icon icon-orange">🌙</div>
+      <div class="feature-kicker">Overnight</div>
+      <h3>Built for Long Sessions</h3>
+      <p>Claude Code, Xcode builds, LLM fine-tuning, giant downloads — close the lid, grab coffee, nothing dies.</p>
+      <img class="feature-mascot" src="assets/mascot-awake.png" alt="Yellow sheep with coffee beside a closed laptop at night" loading="lazy" width="800" height="800">
     </div>
     <div class="feature-card">
-      <div class="feature-icon" style="background:rgba(236,72,153,0.1)">🪄</div>
-      <h3>Menu Bar App</h3>
-      <p>Lives in your tray. Minimal footprint. Always accessible, never in your way.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon" style="background:rgba(59,130,246,0.1)">⏱️</div>
+      <div class="feature-icon icon-teal">⏱️</div>
+      <div class="feature-kicker">Presets</div>
       <h3>Quick Presets</h3>
-      <p>30min, 1h, 2h, 4h, 8h, 12h. One click. That's it.</p>
-    </div>
-  </div>
-</section>
-
-<!-- Use Cases -->
-<section class="usecases">
-  <h2>Built for people who build things</h2>
-  <div class="usecase-list">
-    <div class="usecase">
-      <div class="usecase-icon">🧑‍💻</div>
-      <div class="usecase-text">
-        <h4>Vibe Coding</h4>
-        <p>Claude Code, Cursor, Copilot running for hours. Close your lid, take a break, nothing dies.</p>
-      </div>
-    </div>
-    <div class="usecase">
-      <div class="usecase-icon">🔨</div>
-      <div class="usecase-text">
-        <h4>Long Builds</h4>
-        <p>Xcode, Gradle, CMake compiling. Don't let a lid close kill a 2-hour build.</p>
-      </div>
-    </div>
-    <div class="usecase">
-      <div class="usecase-icon">🚀</div>
-      <div class="usecase-text">
-        <h4>Deployments</h4>
-        <p>Vercel, Railway, Cloudflare deploys mid-lid-close? Not anymore.</p>
-      </div>
-    </div>
-    <div class="usecase">
-      <div class="usecase-icon">🧠</div>
-      <div class="usecase-text">
-        <h4>Model Training</h4>
-        <p>Local LLM fine-tuning, training runs that take hours. Keep them alive.</p>
-      </div>
-    </div>
-    <div class="usecase">
-      <div class="usecase-icon">📥</div>
-      <div class="usecase-text">
-        <h4>Large Downloads</h4>
-        <p>Datasets, VMs, large repos. Can't afford sleep interruption.</p>
-      </div>
+      <p>30min, 1h, 2h, 4h, 8h, 12h. One click. That's it. Plus a menu bar app that stays out of your way.</p>
     </div>
   </div>
 </section>
 
 <!-- Install -->
-<section class="install">
+<section id="install">
+  <div class="kicker orange">Install</div>
   <h2>Get started in 10 seconds</h2>
-  <p class="subtitle">Three ways to install. Pick whichever you prefer.</p>
+  <p class="section-sub">Three ways to install. Pick whichever you prefer.</p>
 
-  <div class="install-methods">
+  <div class="install-grid">
     <div class="install-card">
-      <h4>🍫 Homebrew</h4>
-      <code>brew install --cask mac-closed-awake</code>
+      <div class="method-kicker gold">01 · Homebrew</div>
+      <h3>🍫 Homebrew</h3>
+      <p>Recommended — one command, auto-updates via brew.</p>
+      <code class="code-block">brew install --cask mac-closed-awake</code>
     </div>
     <div class="install-card">
-      <h4>💿 DMG</h4>
-      <code>Download from GitHub Releases</code>
+      <div class="method-kicker orange">02 · DMG</div>
+      <h3>💿 Direct Download</h3>
+      <p>Grab the latest <code>.dmg</code> from <a href="https://github.com/onezion12344/mac-closed-awake/releases/latest">GitHub Releases</a> and drag to Applications.</p>
+      <code class="code-block"><span class="c"># open the latest release page</span>
+open https://github.com/onezion12344/mac-closed-awake/releases</code>
     </div>
     <div class="install-card">
-      <h4>🔧 From Source</h4>
-      <code>git clone &amp;&amp; npm start</code>
+      <div class="method-kicker teal">03 · Source</div>
+      <h3>🔧 Build from Source</h3>
+      <p>Clone, install, run. Electron does the rest.</p>
+      <code class="code-block">git clone https://github.com/onezion12344/mac-closed-awake.git
+cd mac-closed-awake
+npm install &amp;&amp; npm start</code>
     </div>
   </div>
+</section>
 
-  <a href="https://github.com/onezion12344/mac-closed-awake/releases" class="btn btn-primary">Download Now</a>
+<!-- Video -->
+<section id="video">
+  <div class="kicker teal">Product Video</div>
+  <h2>Watch the sheep at work</h2>
+  <p class="section-sub">60 seconds of lid-closing, build-surviving, sleep-defying action.</p>
+
+  <div class="video-wrap">
+    <video controls preload="metadata" poster="assets/mascot-hero.png" width="1052">
+      <source src="product-video.mp4" type="video/mp4">
+      Your browser doesn't support embedded video — <a href="product-video.mp4">download it instead</a>.
+    </video>
+  </div>
+
+  <div class="demo-strip">
+    <div class="gif-card">
+      <img src="demo.gif" alt="MacClosedAwake app demo" loading="lazy" width="400" height="600">
+    </div>
+    <div class="demo-copy">
+      <div class="kicker">See it in action</div>
+      <h3>One click. Lid down. Still running.</h3>
+      <p>Pick a preset or go forever. The menu bar timer counts down while your Mac ignores every lid close. When time's up, sleep comes back on its own — no cleanup, no forgotten <span class="mono">pmset</span> flags.</p>
+    </div>
+  </div>
 </section>
 
 <!-- Footer -->
 <footer>
-  <p>MacClosedAwake · Built by <a href="https://github.com/onezion12344">Harry Huang</a> · MIT License</p>
+  <div class="footer-brand">
+    <img src="assets/mascot-icon.png" alt="MacClosedAwake mascot" loading="lazy" width="26" height="26">
+    <span>MacClosedAwake · Built by <a href="https://github.com/onezion12344">Harry Huang</a> · MIT License</span>
+  </div>
+  <div class="footer-mono"><a href="https://github.com/onezion12344/mac-closed-awake">GitHub</a> · ● Sleep Disabled</div>
 </footer>
 
 </body>

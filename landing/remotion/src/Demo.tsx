@@ -6,6 +6,8 @@ import {
   spring,
   useVideoConfig,
 } from "remotion";
+import { colors, gradient } from "./theme";
+import { displayFont, monoFont } from "./fonts";
 
 const CIRCUMFERENCE = 2 * Math.PI * 65; // ~408.41
 
@@ -54,12 +56,11 @@ export const Demo: React.FC = () => {
   return (
     <AbsoluteFill
       style={{
-        background: "#0f0f1a",
+        background: colors.bg,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontFamily:
-          '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif',
+        fontFamily: displayFont,
       }}
     >
       {/* Background glow */}
@@ -73,7 +74,7 @@ export const Demo: React.FC = () => {
           height: 400,
           borderRadius: "50%",
           background:
-            "radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 60%)",
+            "radial-gradient(circle, rgba(240,192,74,0.12) 0%, transparent 60%)",
           filter: "blur(40px)",
         }}
       />
@@ -82,9 +83,9 @@ export const Demo: React.FC = () => {
       <div
         style={{
           width: 360,
-          background: "linear-gradient(135deg, #0f0f1a, #1a1a2e)",
+          background: `linear-gradient(135deg, ${colors.surface}, ${colors.card})`,
           borderRadius: 20,
-          border: "1px solid rgba(255,255,255,0.08)",
+          border: `1px solid ${colors.border}`,
           boxShadow:
             "0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)",
           padding: "36px 28px 28px",
@@ -106,7 +107,7 @@ export const Demo: React.FC = () => {
             style={{
               width: 28,
               height: 28,
-              background: "linear-gradient(135deg, #6366f1, #a855f7)",
+              background: gradient,
               borderRadius: 6,
               display: "flex",
               alignItems: "center",
@@ -116,14 +117,14 @@ export const Demo: React.FC = () => {
           >
             ⚡
           </div>
-          <span style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>
+          <span style={{ fontSize: 18, fontWeight: 700, color: colors.cream }}>
             MacClosedAwake
           </span>
         </div>
         <div
           style={{
             fontSize: 11,
-            color: "rgba(255,255,255,0.35)",
+            color: colors.muted,
             marginBottom: 28,
           }}
         >
@@ -154,8 +155,8 @@ export const Demo: React.FC = () => {
                 x2="100%"
                 y2="100%"
               >
-                <stop offset="0%" stopColor="#6366f1" />
-                <stop offset="100%" stopColor="#a855f7" />
+                <stop offset="0%" stopColor={colors.gold} />
+                <stop offset="100%" stopColor={colors.orange} />
               </linearGradient>
               {/* Glow filter */}
               <filter id="glow">
@@ -172,7 +173,7 @@ export const Demo: React.FC = () => {
               cy="75"
               r="65"
               fill="none"
-              stroke="rgba(255,255,255,0.06)"
+              stroke={colors.border}
               strokeWidth="5"
             />
             {/* Progress ring */}
@@ -203,7 +204,8 @@ export const Demo: React.FC = () => {
               style={{
                 fontSize: 34,
                 fontWeight: 300,
-                color: "#fff",
+                color: colors.cream,
+                fontFamily: monoFont,
                 fontVariantNumeric: "tabular-nums",
                 letterSpacing: 1,
               }}
@@ -213,7 +215,7 @@ export const Demo: React.FC = () => {
             <div
               style={{
                 fontSize: 9,
-                color: "rgba(255,255,255,0.3)",
+                color: colors.muted,
                 textTransform: "uppercase",
                 letterSpacing: 1.5,
                 marginTop: 2,
@@ -232,12 +234,13 @@ export const Demo: React.FC = () => {
             gap: 5,
             padding: "5px 14px",
             borderRadius: 16,
-            background: `rgba(34,197,94,${0.08 + glowIntensity * 0.06})`,
-            border: `1px solid rgba(34,197,94,${0.15 + glowIntensity * 0.15})`,
-            boxShadow: `0 0 ${12 + glowIntensity * 8}px rgba(34,197,94,${0.15 + glowIntensity * 0.1})`,
+            background: `rgba(58,138,138,${0.08 + glowIntensity * 0.06})`,
+            border: `1px solid rgba(58,138,138,${0.15 + glowIntensity * 0.15})`,
+            boxShadow: `0 0 ${12 + glowIntensity * 8}px rgba(58,138,138,${0.15 + glowIntensity * 0.1})`,
             fontSize: 10,
             fontWeight: 500,
-            color: "#22c55e",
+            color: "#5ab8b8",
+            fontFamily: monoFont,
             marginBottom: 20,
           }}
         >
@@ -246,8 +249,8 @@ export const Demo: React.FC = () => {
               width: 5,
               height: 5,
               borderRadius: "50%",
-              background: "#22c55e",
-              boxShadow: `0 0 ${4 + glowIntensity * 4}px rgba(34,197,94,${0.4 + glowIntensity * 0.3})`,
+              background: "#5ab8b8",
+              boxShadow: `0 0 ${4 + glowIntensity * 4}px rgba(58,138,138,${0.4 + glowIntensity * 0.3})`,
             }}
           />
           Sleep disabled — {formatTime(timerSeconds)} left
@@ -270,15 +273,16 @@ export const Demo: React.FC = () => {
                 borderRadius: 8,
                 background:
                   i === 2
-                    ? "linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.2))"
-                    : "rgba(255,255,255,0.04)",
+                    ? "linear-gradient(135deg, rgba(240,192,74,0.2), rgba(232,147,90,0.2))"
+                    : "rgba(245,238,218,0.04)",
                 border:
                   i === 2
-                    ? "1px solid rgba(99,102,241,0.3)"
-                    : "1px solid rgba(255,255,255,0.06)",
-                color: i === 2 ? "#fff" : "rgba(255,255,255,0.6)",
+                    ? "1px solid rgba(240,192,74,0.35)"
+                    : `1px solid ${colors.border}`,
+                color: i === 2 ? colors.cream : colors.muted,
                 fontSize: 12,
                 fontWeight: 500,
+                fontFamily: monoFont,
               }}
             >
               {label}
@@ -295,11 +299,12 @@ export const Demo: React.FC = () => {
             padding: 10,
             borderRadius: 8,
             background:
-              "linear-gradient(135deg, rgba(168,85,247,0.1), rgba(99,102,241,0.1))",
-            border: "1px solid rgba(168,85,247,0.2)",
-            color: "#a855f7",
+              "linear-gradient(135deg, rgba(232,147,90,0.12), rgba(240,192,74,0.12))",
+            border: "1px solid rgba(232,147,90,0.3)",
+            color: colors.orange,
             fontSize: 11,
             fontWeight: 600,
+            fontFamily: monoFont,
           }}
         >
           ∞ FOREVER MODE

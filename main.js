@@ -359,7 +359,7 @@ function createWindow() {
     titleBarStyle: 'hiddenInset',
     vibrancy: 'under-window',
     visualEffectState: 'active',
-    backgroundColor: '#0f0f1a',
+    backgroundColor: '#0d1b2a',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -376,7 +376,7 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow()
   tray = new Tray(path.join(__dirname, 'icon.png'))
-  tray.setToolTip('MacClosedAwake')
+  tray.setToolTip('MacClosedAwake — Lid closed. Still awake.')
   updateTrayMenu()
 })
 

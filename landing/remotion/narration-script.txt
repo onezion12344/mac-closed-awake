@@ -1,0 +1,7 @@
+You close your MacBook lid... and everything stops. Builds die. Downloads freeze. Your AI agents fall asleep, right in the middle of the job.
+
+Not anymore. MacClosedAwake keeps your Mac fully awake — even with the lid closed. No external display. No tricks.
+
+One click from your menu bar, and you're set. Or pick a timer: one, two, four, eight hours... or forever. When time's up, your Mac goes right back to sleeping normally.
+
+brew install mac-closed-awake. Close the lid. Stay awake.
