@@ -3,18 +3,14 @@ const { exec, spawn, execSync } = require('child_process')
 const path = require('path')
 const fs = require('fs')
 const net = require('net')
-const https = require('https')
 
-// ── Lemon Squeezy config ──
-// Set these after creating your product on lemonsqueezy.com
-const LEMON_STORE_ID = '' // e.g. '12345'
-const LEMON_VARIANT_ID = '' // e.g. '67890' — the Pro variant
+const { verifyActivationCode } = require('./license')
 
-function getLemonApiKey() {
-  try {
-    return execSync('security find-generic-password -s "lidajar-api-key" -w').toString().trim()
-  } catch { return '' }
-}
+// ⚠️ PRODUCTION WARNING: This is a TEST Stripe link.
+// Before shipping: replace 'https://buy.stripe.com/test_eVqaER2GQdWaars23a4ko0s' 
+// with your production lifetime payment link from Stripe dashboard
+const STRIPE_LIFETIME_URL = 'https://buy.stripe.com/test_eVqaER2GQdWaars23a4ko0s'
+// TODO: Replace with production Stripe lifetime payment link
 
 let win, tray
 let restoreTimer = null
@@ -86,10 +82,27 @@ while true; do
 done
 `
 
+// Direct pmset via sudo (passwordless — requires /etc/sudoers.d entry)
+function directPmset(action) {
+  return new Promise((resolve, reject) => {
+    let cmd
+    if (action === 'DISABLE') cmd = 'sudo -n pmset -a disablesleep 1'
+    else if (action === 'ENABLE') cmd = 'sudo -n pmset -a disablesleep 0'
+    else if (action === 'STATUS') cmd = 'sudo -n pmset -g custom | grep -o "disablesleep [0-9]" | awk "{print \\$2}"'
+    else { reject(new Error('Unknown action')); return }
+    exec(cmd, (err, stdout) => {
+      if (err) reject(err)
+      else if (action === 'STATUS') resolve({ ok: true, status: parseInt(stdout.trim()) || 0 })
+      else resolve({ ok: true })
+    })
+  })
+}
+
 async function sendHelper(cmd) {
+  // Try helper socket first
   return new Promise((resolve, reject) => {
     const socket = new net.Socket()
-    socket.setTimeout(3000)
+    socket.setTimeout(2000)
     socket.connect(HELPER_SOCKET, () => {
       socket.write(cmd)
     })
@@ -98,15 +111,24 @@ async function sendHelper(cmd) {
       socket.destroy()
       if (msg === 'OK') resolve({ ok: true })
       else if (msg === 'ERR') reject(new Error('Helper error'))
-      else resolve({ ok: true, status: parseInt(msg) })
+      else resolve({ ok: true, status: parseInt(msg) || 0 })
     })
-    socket.on('error', () => {
+    socket.on('error', async () => {
       socket.destroy()
-      reject(new Error('Helper not running'))
+      // Fallback to direct sudo pmset
+      try {
+        resolve(await directPmset(cmd))
+      } catch (e) {
+        reject(new Error('Helper not running and sudo pmset failed: ' + e.message))
+      }
     })
-    socket.on('timeout', () => {
+    socket.on('timeout', async () => {
       socket.destroy()
-      reject(new Error('Helper timeout'))
+      try {
+        resolve(await directPmset(cmd))
+      } catch (e) {
+        reject(new Error('Helper timeout and sudo pmset failed: ' + e.message))
+      }
     })
   })
 }
@@ -204,63 +226,7 @@ function startTimer(secs) {
   }, 1000)
 }
 
-// ── Lemon Squeezy license validation ──
-function lemonRequest(urlPath, method = 'GET', body = null) {
-  return new Promise((resolve, reject) => {
-    const options = {
-      hostname: 'api.lemonsqueezy.com',
-      path: urlPath,
-      method,
-      headers: {
-        'Authorization': `Bearer ${getLemonApiKey()}`,
-        'Accept': 'application/vnd.api+json',
-        'Content-Type': 'application/vnd.api+json',
-      },
-    }
-    const req = https.request(options, (res) => {
-      let data = ''
-      res.on('data', (chunk) => data += chunk)
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)) } catch { reject(new Error('Invalid JSON')) }
-      })
-    })
-    req.on('error', reject)
-    if (body) req.write(JSON.stringify(body))
-    req.end()
-  })
-}
 
-async function validateLicense(licenseKey) {
-  try {
-    const res = await lemonRequest(`/v1/licenses/validate`, 'POST', {
-      data: {
-        type: 'license-validate',
-        attributes: { key: licenseKey },
-      },
-    })
-    if (res.data && res.data.attributes) {
-      const attrs = res.data.attributes
-      if (attrs.valid && attrs.meta && attrs.meta.store_id == LEMON_STORE_ID) {
-        return { valid: true, email: attrs.meta.user_email || '' }
-      }
-    }
-    return { valid: false }
-  } catch (e) {
-    return { valid: false, error: e.message }
-  }
-}
-
-function openCheckout() {
-  const checkoutUrl = `https://onezion.lemonsqueezy.com/checkout/buy/${LEMON_VARIANT_ID}`
-  const checkoutWin = new BrowserWindow({
-    width: 500,
-    height: 700,
-    title: 'Upgrade to Pro',
-    webPreferences: { nodeIntegration: false },
-  })
-  checkoutWin.loadURL(checkoutUrl)
-  checkoutWin.on('closed', () => { checkoutWin = null })
-}
 
 // ── IPC handlers ──
 ipcMain.handle('start', async (_, secs) => {
@@ -314,33 +280,42 @@ ipcMain.handle('is-pro', () => {
 })
 
 ipcMain.handle('upgrade', () => {
-  openCheckout()
+  shell.openExternal(STRIPE_LIFETIME_URL)
 })
 
 ipcMain.handle('activate-license', async (_, licenseKey) => {
-  const result = await validateLicense(licenseKey)
-  if (result.valid) {
-    const cfg = loadConfig()
-    cfg.isPro = true
-    cfg.licenseKey = licenseKey
-    cfg.proEmail = result.email || ''
-    saveConfig(cfg)
-    if (win && !win.isDestroyed()) win.webContents.send('pro-status', true)
-    return { ok: true }
+  try {
+    const result = verifyActivationCode(licenseKey)
+    if (result.valid) {
+      const cfg = loadConfig()
+      cfg.isPro = true
+      cfg.licenseKey = licenseKey
+      cfg.proEmail = result.email || ''
+      saveConfig(cfg)
+      if (win && !win.isDestroyed()) win.webContents.send('pro-status', true)
+      return { ok: true }
+    }
+    return { ok: false, error: result.reason || 'Invalid activation code' }
+  } catch (e) {
+    return { ok: false, error: 'Activation failed. Please try again.' }
   }
-  return { ok: false, error: 'Invalid license key' }
 })
 
 // ── Tray ──
 function updateTrayMenu() {
   if (!tray) return
   const label = forever ? 'Forever' : remaining > 0 ? `${fmtTime(remaining)} left` : 'Off'
-  tray.setContextMenu(Menu.buildFromTemplate([
+  const cfg = loadConfig()
+  const items = [
     { label: 'Show', click: () => { win.show(); win.focus() } },
     { label: `Status: ${label}`, enabled: false },
-    { type: 'separator' },
-    { label: 'Quit', click: () => { tray = null; app.quit() } },
-  ]))
+  ]
+  if (!cfg.isPro) {
+    items.push({ label: 'Upgrade to Pro', click: () => shell.openExternal(STRIPE_LIFETIME_URL) })
+  }
+  items.push({ type: 'separator' })
+  items.push({ label: 'Quit', click: () => { tray = null; app.quit() } })
+  tray.setContextMenu(Menu.buildFromTemplate(items))
 }
 
 function fmtTime(s) {
@@ -353,7 +328,7 @@ function fmtTime(s) {
 function createWindow() {
   win = new BrowserWindow({
     width: 400,
-    height: 600,
+    height: 720,
     resizable: false,
     maximizable: false,
     titleBarStyle: 'hiddenInset',
