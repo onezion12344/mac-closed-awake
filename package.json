@@ -1,6 +1,6 @@
 {
   "name": "mac-closed-awake",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Your Mac stays awake — lid closed or not. No sleep, ever.",
   "main": "main.js",
   "author": "Harry Huang <onezion12344@gmail.com>",
