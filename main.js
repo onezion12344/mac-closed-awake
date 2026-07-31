@@ -439,7 +439,20 @@ function updateTrayMenu() {
     items.push({ label: 'Upgrade to Pro', click: () => shell.openExternal(STRIPE_LIFETIME_URL) })
   }
   items.push({ type: 'separator' })
-  items.push({ label: 'Quit', click: () => { tray = null; app.quit() } })
+  items.push({ 
+    label: 'Quit', 
+    click: () => { 
+      // Clean up before quitting
+      stopCaffeinate()
+      stopPowerMonitor()
+      clearInterval(restoreTimer)
+      sendHelper('ENABLE').catch(() => {})
+      setTimeout(() => { 
+        tray = null
+        app.quit() 
+      }, 500)
+    } 
+  })
   tray.setContextMenu(Menu.buildFromTemplate(items))
 }
 
@@ -475,9 +488,30 @@ function createWindow() {
 // ── App ──
 app.whenReady().then(() => {
   createWindow()
-  tray = new Tray(path.join(__dirname, 'icon.png'))
+  tray = new Tray(path.join(__dirname, 'icon.icns'))
   tray.setToolTip('MacClosedAwake — Lid closed. Still awake.')
   updateTrayMenu()
 })
 
-app.on('window-all-closed', () => {})
+app.on('window-all-closed', () => {
+  // Clean up all background processes before quitting
+  stopCaffeinate()
+  stopPowerMonitor()
+})
+
+// Force quit handler - clean up everything
+app.on('before-quit', () => {
+  console.log('[MCA] Before quit - cleaning up...')
+  
+  // Stop all timers
+  clearInterval(restoreTimer)
+  
+  // Stop background processes
+  stopCaffeinate()
+  stopPowerMonitor()
+  
+  // Disable sleep before exiting if still active
+  sendHelper('ENABLE').catch(() => {})
+  
+  console.log('[MCA] Cleanup complete')
+})
