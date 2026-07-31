@@ -14,10 +14,12 @@ const STRIPE_LIFETIME_URL = 'https://buy.stripe.com/test_eVqaER2GQdWaars23a4ko0s
 
 let win, tray
 let restoreTimer = null
+let caffeineProcess = null
 let remaining = 0
 let totalDuration = 0
 let helperRunning = false
 let forever = false
+let lidCloseCount = 0
 
 const HELPER_SOCKET = '/tmp/com.mca.helper.sock'
 const HELPER_PLIST = path.join(app.getPath('home'), 'Library/LaunchAgents/com.mca.helper.plist')
@@ -33,22 +35,65 @@ function saveConfig(cfg) {
   fs.writeFileSync(STORE_PATH, JSON.stringify(cfg, null, 2))
 }
 
-// ── Helper daemon ──
+// ── Caffeinate process management ──
+function startCaffeinate() {
+  if (caffeineProcess) return
+  
+  // Use caffeine with UI notification and idle prevention
+  caffeineProcess = spawn('caffeinate', ['-u', '-i', '-t', '86400'], { detached: true })
+  
+  caffeineProcess.on('error', (err) => {
+    logError('Failed to start caffeine:', err.message)
+    caffeineProcess = null
+  })
+  
+  caffeineProcess.unref()
+  logError('Started caffeine process')
+}
+
+function stopCaffeinate() {
+  if (caffeineProcess) {
+    try {
+      caffeineProcess.kill('SIGTERM')
+    } catch {}
+    caffeineProcess = null
+    logError('Stopped caffeine process')
+  }
+}
+
+function restartCaffeinate() {
+  stopCaffeinate()
+  
+  if (forever || remaining > 0) {
+    startCaffeinate()
+  }
+}
+
+function logError(...args) {
+  console.error('[MCA]', ...args)
+}
+
+// Helper daemon modified to support lid-event handling
 const HELPER_SCRIPT = `#!/bin/bash
 # MacClosedAwake privileged helper — runs as root via launchd
 SOCKET="${HELPER_SOCKET}"
 rm -f "$SOCKET"
 
 disable_sleep() {
-  pmset -a disablesleep 1
+  # Double-check that no caffeine process is fighting us
+  sudo -n pmset -a disablesleep 1
 }
 
 enable_sleep() {
-  pmset -a disablesleep 0
+  sudo -n pmset -a disablesleep 0
 }
 
 get_status() {
   pmset -g custom | grep -o 'disablesleep [0-9]' | awk '{print $2}'
+}
+
+handle_lid_close() {
+  echo "LID_CLOSE" > /tmp/mca.lidevent
 }
 
 # Create Unix socket server
@@ -65,6 +110,7 @@ while true; do
         DISABLE) disable_sleep && echo "OK" ;;
         ENABLE) enable_sleep && echo "OK" ;;
         STATUS) get_status ;;
+        LID_CLOSE) handle_lid_close && echo "OK" ;;
         *) echo "ERR" ;;
       esac
     '
@@ -76,6 +122,7 @@ while true; do
         DISABLE) disable_sleep && echo "OK" ;;
         ENABLE) enable_sleep && echo "OK" ;;
         STATUS) get_status ;;
+        LID_CLOSE) handle_lid_close && echo "OK" ;;
       esac
     done
   fi
@@ -201,6 +248,73 @@ function checkHelper() {
 }
 
 // ── Timer ──
+let powerMonitor = null
+
+// Monitor system for power state changes (lid close/open)
+function startPowerMonitor() {
+  // If we already have a monitor, skip
+  if (powerMonitor) return
+  
+  // Use system profiler to detect power events
+  const monitorScript = `#!/bin/bash
+# Continuous power monitor for MacClosedAwake
+SOCKET="/tmp/com.mca.helper.sock"
+LAST_STATUS=""
+CHECK_COUNT=0
+
+while true; do
+  # Query current disablesleep status from pmset
+  CURRENT=$(pmset -g custom 2>/dev/null | grep -o 'disablesleep [0-9]' | awk '{print $2}' || echo "unknown")
+  
+  # Check if we just closed the lid (every 5 seconds)
+  CHECK_COUNT=$((CHECK_COUNT + 1))
+  
+  # On every 3rd check (~15s), also read battery/lid status
+  if [ $((CHECK_COUNT % 3)) -eq 0 ]; then
+    LID_INFO=$(ioreg -rn AppleRTC 2>/dev/null | grep -i lid || echo "")
+    BATTERY_INFO=$(pmset -g batt 2>/dev/null | grep -i capacity || echo "")
+    
+    # Detect potential lid closure by checking if sleep was enabled
+    if [ "$CURRENT" != "$LAST_STATUS" ] && [ "$LAST_STATUS" = "1" ]; then
+      # Status changed from disabled to enabled while app should be running
+      echo "LID_CLOSE" > /tmp/mca.lidevent.flag
+    fi
+  fi
+  
+  LAST_STATUS="$CURRENT"
+  sleep 5
+done
+`
+  
+  fs.writeFileSync('/tmp/mca-power-monitor.sh', monitorScript, { mode: 0o755 })
+  
+  // Launch monitor as background process
+  powerMonitor = spawn('bash', ['/tmp/mca-power-monitor.sh'], { detached: true })
+  powerMonitor.unref()
+  logError('Started power monitor')
+}
+
+function stopPowerMonitor() {
+  if (powerMonitor) {
+    try {
+      powerMonitor.kill('SIGTERM')
+    } catch {}
+    powerMonitor = null
+    logError('Stopped power monitor')
+  }
+  
+  // Clear any event flags
+  try {
+    fs.unlinkSync('/tmp/mca.lidevent.flag')
+  } catch {}
+}
+
+function reapplyDisableSleep() {
+  // Re-enforce sleep disable via helper
+  sendHelper('DISABLE').catch(() => {})
+  logError('Re-applied disablesleep due to lid event')
+}
+
 function startTimer(secs) {
   clearInterval(restoreTimer)
   forever = false
@@ -231,7 +345,13 @@ function startTimer(secs) {
 // ── IPC handlers ──
 ipcMain.handle('start', async (_, secs) => {
   try {
+    lidCloseCount = 0
     await sendHelper('DISABLE')
+    
+    // Start caffeine process and power monitor to handle lid events
+    startCaffeinate()
+    startPowerMonitor()
+    
     startTimer(secs)
     return { ok: true }
   } catch (e) {
@@ -242,6 +362,11 @@ ipcMain.handle('start', async (_, secs) => {
 ipcMain.handle('stop', async () => {
   clearInterval(restoreTimer)
   forever = false
+  
+  // Stop all monitoring processes
+  stopCaffeinate()
+  stopPowerMonitor()
+  
   try {
     await sendHelper('ENABLE')
     remaining = 0
