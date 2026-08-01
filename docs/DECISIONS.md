@@ -307,6 +307,74 @@ The OneZion automation principle: **"Automate everything EXCEPT genuine owner de
 
 ---
 
+## ADR-006: How Far to "Integrate Stripe" — Live Links vs Webhook Automation
+
+**Status:** ⏸ Owner-Gated
+**Date:** 2026-08-01
+**Decided by:** Pending owner approval (payment-rail + scope change = Human Gate under OneZion SaaS playbook)
+
+### Context
+
+The product is a **shipped-binary Electron app**, not a web SaaS. Per OneZion SaaS playbook §3.5, that places it on the offline-entitlement path — and ADR-001 deliberately chose **offline Ed25519 activation codes with no server** ("codegen over loader": the customer keeps working software even if every OneZion server disappears). ADR-002 chose **Stripe HK** as the rail; ADR-004 removed Lemon Squeezy and confirmed pre-generated Stripe **Payment Links** (no webhook).
+
+**Verified current state (2026-08-01):**
+
+| Thing | State |
+|---|---|
+| Landing page Stripe links (`landing/index.html`) | 3 × `buy.stripe.com/test_*` (Monthly $1.29, Lifetime $9, Updates $18), each with a `TODO: swap to production` comment |
+| In-app buy link (`main.js:12`) | `STRIPE_LIFETIME_URL` = `buy.stripe.com/test_eVqaER2GQdWaars23a4ko0s` (+ matching `PRODUCTION WARNING`) |
+| Activation codes | ✅ Working — `license.js` verifies, `scripts/generate-activation.js` signs with Ed25519; private key in `.env`, public key embedded |
+| Webhook / server | ❌ None exists. `grep` for express/createServer/fastify/stripe-webhook = no matches |
+| PPP pricing file (`stripe-pricing-results.json`, ADR-002) | ❌ Missing from repo (HANDOFF §"What's Deployed" still claims it exists — stale) |
+| Fulfillment today | Manual: user pays (test) → Harry runs `generate-activation.js --email X --tier Y` → emails the `MCA-…` code |
+
+"Integrate Stripe now" has two plausible readings. Both trip Human Gates — payment-rail/pricing change, and (B) adds secrets + a public endpoint + a sub-processor — so neither proceeds without Harry's explicit in-session yes.
+
+### Option A — Swap test → live Payment Links (keeps the no-server architecture)
+
+**What changes:** replace every `buy.stripe.com/test_*` URL with a live `buy.stripe.com/…` URL in `landing/index.html` (3 links) and `main.js:12` (1 link). Nothing else moves.
+
+**What Harry must do in the Stripe dashboard (agents cannot):**
+1. Create / confirm 3 live **Payment Links** — Lifetime, Monthly, Updates Pack — on the HK account.
+2. (Optional, for PPP) Re-create the 40-currency price set ADR-002 describes; `stripe-pricing-results.json` is missing and the `create_stripe_prices.py` one-time script would need to be re-run.
+3. Paste the live URLs to the agent.
+
+**What the agent does once URLs are provided:** edits the 4 URL sites, removes the `TODO`/`PRODUCTION WARNING` comments, commits. ~5 minutes.
+
+**Flow after:** pay on Stripe Checkout → Stripe emails the buyer a receipt → Harry manually runs `generate-activation.js` per sale and emails the activation code. Same as today, but real money.
+
+**Gates tripped:** payment-rail change (Stripe test → live). Needs Harry's explicit in-session yes.
+**Does NOT trip:** prod deploy, new secrets, new sub-processor. Architecture unchanged — honors ADR-001.
+**PCI scope:** unchanged (SAQ-A — Payment Links, card data never touches OneZion).
+
+### Option B — Webhook server auto-issues activation codes (reverses ADR-001)
+
+**What changes:** stand up a server on **Tencent Cloud HK** that receives `checkout.session.completed` webhooks, auto-runs `generate-activation.js`, and emails the buyer their `MCA-…` code via **Tencent SES HTTP API**.
+
+**New components:**
+- Public HTTPS endpoint on Tencent Lighthouse HK (MacBook public-internet ban applies — webhook receiver cannot run on the Mac).
+- Stripe webhook signature verification (Stripe signing secret).
+- `ED25519_PRIVATE_KEY` stored as a **production secret** on the server (0600 + passphrase + rotation per playbook §3.4; rotation is itself a Human Gate).
+- Tencent SES sender domain verified (SPF + DKIM + DMARC) + an approved transactional email template ("here is your activation code") — agent-drafted, Harry-approved before first send (playbook §5.4).
+- Refund → revocation logic (playbook §6.1: refund zeroes entitlement in the same session; with no server today this is also new).
+
+**Gates tripped:** production deploy + new secrets + **new sub-processor (Tencent SES, plus Tencent Cloud itself for a new public surface)** + payment-adjacent change. Likely also the **2nd-active-product** gate if something else is in active build (the OneZion SaaS playbook has **no Active-product registry** — must ask Harry for the current active product before scoping).
+**Reverses:** ADR-001's "no server, zero maintenance, codegen-over-loader" stance. ADR-001 was explicit that server-side validation was "❌ over-engineering for a $9 app." Option B re-litigates that.
+**Also:** playbook §3.5 says shipped-binary entitlement = Keygen; ADR-001 overrode that toward offline Ed25519. Option B neither follows §3.5 (no Keygen) nor ADR-001 (adds a server) — it's a third path and needs its own sign-off.
+
+### Recommendation
+
+**Option A.** It is the documented P0 in HANDOFF.md ("swap test links before launch"), matches ADR-001/002/004, and needs only Harry's dashboard work + a 5-minute edit. Option B is a real build that should wait until sale volume justifies retiring the manual step — and only after re-deciding ADR-001 on the record.
+
+### Action required from Harry
+
+Respond with one of:
+- ✅ **"A, here are the live links"** + paste the 3 (or 4) `buy.stripe.com/…` URLs → agent swaps them, removes TODOs, commits.
+- ✅ **"B"** → agent re-asks the Active-product question, then scopes the webhook build against the Human Gates above before any code.
+- ⏸ **"Not now"** → this ADR stays as the record; nothing changes.
+
+---
+
 ## Summary of All Decisions
 
 | ADR ID | Topic | Status | Date |
@@ -316,7 +384,8 @@ The OneZion automation principle: **"Automate everything EXCEPT genuine owner de
 | 003 | Electron vs Web App | ✅ Accepted | 2026-07-29 |
 | 004 | Lemon Squeezy vs Stripe | ✅ Rejected | 2026-07-29 |
 | 005 | GitHub Push Access | ⏸ Owner-Gated | 2026-07-29 |
+| 006 | Live Links vs Webhook Automation | ⏸ Owner-Gated | 2026-08-01 |
 
 ---
 
-*Last updated: 2026-07-29. Written during Phase 6 delivery.*
+*Last updated: 2026-08-01. ADR-006 added (Stripe integration scope — owner-gated).*
