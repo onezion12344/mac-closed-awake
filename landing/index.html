@@ -16,6 +16,19 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+/* Apply saved language before paint to avoid flash of wrong-language font */
+(function() {
+  try {
+    var saved = localStorage.getItem('mca-lang');
+    if (!saved) {
+      saved = (navigator.language || 'en').toLowerCase().indexOf('zh') === 0 ? 'zh' : 'en';
+    }
+    if (saved === 'zh') document.documentElement.classList.add('lang-zh');
+    document.documentElement.setAttribute('lang', saved === 'zh' ? 'zh-CN' : 'en');
+  } catch (e) {}
+})();
+</script>
 <style>
 /* ═══════════════════════════════════════════════
    DESIGN TOKENS
@@ -40,8 +53,9 @@
   --muted-dim: #5a6a80;
   --gradient-warm: linear-gradient(135deg, #f0c04a, #e8935a);
   --gradient-cool: linear-gradient(135deg, #3a8a8a, #4aadad);
-  --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  --font-zh: 'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans GB', sans-serif;
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 20px;
@@ -64,6 +78,10 @@ body {
   overflow-x: hidden;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+body.lang-zh, html.lang-zh body, html.lang-zh h1, html.lang-zh h2, html.lang-zh h3 {
+  font-family: var(--font-zh), var(--font-display);
+  letter-spacing: -0.5px;
 }
 
 /* Particle canvas — full-bleed background */
@@ -156,6 +174,25 @@ nav.scrolled {
 }
 .nav-links a:hover { color: var(--gold); }
 .nav-links a:hover::after { transform: scaleX(1); transform-origin: left; }
+
+.lang-toggle {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 11px;
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.25s, color 0.25s, background 0.25s;
+  margin-right: 4px;
+}
+.lang-toggle:hover { border-color: var(--gold); color: var(--cream); }
+.lang-toggle span { transition: color 0.2s, opacity 0.2s; opacity: 0.45; }
+.lang-toggle span.active { color: var(--gold); opacity: 1; }
+.lang-toggle .sep { opacity: 0.3; }
 
 /* ═══════════════════════════════════════════════
    TICKER BANDS
@@ -856,11 +893,16 @@ footer a:hover { text-decoration: underline; }
     <span>MacClosedAwake</span>
   </a>
   <div class="nav-links">
-    <a href="#features">Features</a>
-    <a href="#comparison" class="hide-sm">Why Us</a>
-    <a href="#pricing">Pricing</a>
-    <a href="#install">Install</a>
-    <a href="#video" class="hide-sm">Video</a>
+    <a href="#features" data-i18n="nav.features">Features</a>
+    <a href="#comparison" class="hide-sm" data-i18n="nav.why">Why Us</a>
+    <a href="#pricing" data-i18n="nav.pricing">Pricing</a>
+    <a href="#install" data-i18n="nav.install">Install</a>
+    <a href="#video" class="hide-sm" data-i18n="nav.video">Video</a>
+    <button class="lang-toggle" id="langToggle" aria-label="Switch language">
+      <span class="active" data-lang="en">EN</span>
+      <span class="sep">/</span>
+      <span data-lang="zh">中文</span>
+    </button>
     <a href="https://github.com/onezion12344/mac-closed-awake" target="_blank" rel="noopener">
       <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px;margin-right:3px"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub
     </a>
@@ -870,48 +912,48 @@ footer a:hover { text-decoration: underline; }
 <!-- ═══ TICKER BANDS ═══ -->
 <div class="ticker ticker-gold" aria-hidden="true">
   <div class="ticker-track">
-    <span>ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span><span>ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span><span>ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span><span>ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span><span>ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span><span>ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span>
+    <span data-i18n="ticker.build">ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span><span data-i18n="ticker.build">ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span><span data-i18n="ticker.build">ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span><span data-i18n="ticker.build">ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span><span data-i18n="ticker.build">ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span><span data-i18n="ticker.build">ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE</span>
   </div>
 </div>
 <div class="ticker ticker-orange ticker-reverse" aria-hidden="true">
   <div class="ticker-track">
-    <span>LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span><span>LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span><span>LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span><span>LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span><span>LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span><span>LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span>
+    <span data-i18n="ticker.lid">LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span><span data-i18n="ticker.lid">LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span><span data-i18n="ticker.lid">LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span><span data-i18n="ticker.lid">LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span><span data-i18n="ticker.lid">LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span><span data-i18n="ticker.lid">LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY</span>
   </div>
 </div>
 <div class="ticker ticker-cream" aria-hidden="true">
   <div class="ticker-track">
-    <span>BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span><span>BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span><span>BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span><span>BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span><span>BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span><span>BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span>
+    <span data-i18n="ticker.brew">BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span><span data-i18n="ticker.brew">BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span><span data-i18n="ticker.brew">BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span><span data-i18n="ticker.brew">BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span><span data-i18n="ticker.brew">BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span><span data-i18n="ticker.brew">BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED</span>
   </div>
 </div>
 
 <!-- ═══ HERO ═══ -->
 <header class="hero container">
   <div>
-    <div class="hero-kicker reveal">macOS Menu Bar Utility</div>
-    <h1 class="reveal reveal-delay-1">Close the lid.<br><span class="gradient-text">Stay awake.</span><span class="cursor-blink" aria-hidden="true"></span></h1>
-    <p class="hero-sub reveal reveal-delay-2">The yellow sheep keeps your Mac running with the lid shut — builds keep compiling, deploys keep shipping, and your vibe coding session never dies.</p>
+    <div class="hero-kicker reveal" data-i18n="hero.kicker">macOS Menu Bar Utility</div>
+    <h1 class="reveal reveal-delay-1"><span data-i18n="hero.title1">Close the lid.</span><br><span class="gradient-text" data-i18n="hero.title2">Stay awake.</span><span class="cursor-blink" aria-hidden="true"></span></h1>
+    <p class="hero-sub reveal reveal-delay-2" data-i18n="hero.sub">The yellow sheep keeps your Mac running with the lid shut — builds keep compiling, deploys keep shipping, and your vibe coding session never dies.</p>
     <div class="cta-row reveal reveal-delay-3">
       <a href="https://github.com/onezion12344/mac-closed-awake/releases/latest" class="btn btn-primary">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download for macOS
+        <span data-i18n="hero.download">Download for macOS</span>
       </a>
       <a href="#install" class="btn btn-ghost">$ brew install</a>
-      <a href="#pricing" class="btn btn-ghost" style="border-color:var(--gold);color:var(--gold)">Buy Pro — $9</a>
+      <a href="#pricing" class="btn btn-ghost" style="border-color:var(--gold);color:var(--gold)" data-i18n="hero.buy">Buy Pro — $9</a>
     </div>
     <a href="https://github.com/onezion12344/mac-closed-awake" target="_blank" rel="noopener" class="open-source-badge reveal reveal-delay-4">
       <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-      MIT Licensed · Open Source
+      <span data-i18n="hero.opensource">MIT Licensed · Open Source</span>
     </a>
   </div>
 
   <div class="hero-card reveal reveal-delay-2">
     <div class="hero-card-inner">
       <img src="assets/mascot-hero.png" alt="Felt yellow sheep hugging a closed, glowing MacBook" width="800" height="800">
-      <div class="hero-card-label">Yellow Sheep · Keep Awake</div>
+      <div class="hero-card-label" data-i18n="hero.cardLabel">Yellow Sheep · Keep Awake</div>
     </div>
     <div class="hero-card-footer">
-      <span class="status-live"><span class="dot"></span>Sleep Disabled</span>
-      <span>∞ Forever Mode</span>
+      <span class="status-live"><span class="dot"></span><span data-i18n="hero.sleepDisabled">Sleep Disabled</span></span>
+      <span data-i18n="hero.forever">∞ Forever Mode</span>
     </div>
   </div>
 </header>
@@ -919,48 +961,48 @@ footer a:hover { text-decoration: underline; }
 <!-- ═══ FEATURES ═══ -->
 <section id="features">
   <div class="container">
-    <div class="kicker kicker-gold reveal">Features</div>
-    <h2 class="reveal reveal-delay-1">Simple. Powerful.<br>Always awake.</h2>
-    <p class="section-sub reveal reveal-delay-2">One privileged helper, zero fuss. The only method that truly prevents sleep on Apple Silicon Macs — even with the lid closed.</p>
+    <div class="kicker kicker-gold reveal" data-i18n="features.kicker">Features</div>
+    <h2 class="reveal reveal-delay-1"><span data-i18n="features.title1">Simple. Powerful.</span><br><span data-i18n="features.title2">Always awake.</span></h2>
+    <p class="section-sub reveal reveal-delay-2" data-i18n="features.sub">One privileged helper, zero fuss. The only method that truly prevents sleep on Apple Silicon Macs — even with the lid closed.</p>
 
     <div class="feature-grid">
       <div class="feature-card reveal">
         <div class="feature-icon icon-gold">⚡</div>
-        <div class="feature-kicker">Core</div>
-        <h3>Lid-Close Safe</h3>
-        <p>The ONLY method that truly prevents sleep on Apple Silicon Macs. Even with the lid closed. No external display needed.</p>
+        <div class="feature-kicker" data-i18n="features.core">Core</div>
+        <h3 data-i18n="features.lidCloseTitle">Lid-Close Safe</h3>
+        <p data-i18n="features.lidCloseBody">The ONLY method that truly prevents sleep on Apple Silicon Macs. Even with the lid closed. No external display needed.</p>
       </div>
       <div class="feature-card reveal reveal-delay-1">
         <div class="feature-icon icon-orange">♾️</div>
-        <div class="feature-kicker">Mode</div>
-        <h3>Forever Mode</h3>
-        <p>No timer. No limits. Stays awake until you manually stop. Perfect for overnight runs.</p>
+        <div class="feature-kicker" data-i18n="features.mode">Mode</div>
+        <h3 data-i18n="features.foreverTitle">Forever Mode</h3>
+        <p data-i18n="features.foreverBody">No timer. No limits. Stays awake until you manually stop. Perfect for overnight runs.</p>
       </div>
       <div class="feature-card reveal reveal-delay-2">
         <div class="feature-icon icon-teal">🔄</div>
-        <div class="feature-kicker">Safety</div>
-        <h3>Auto-Restore</h3>
-        <p>Set a timer, forget about it. Sleep automatically re-enables when time's up.</p>
+        <div class="feature-kicker" data-i18n="features.safety">Safety</div>
+        <h3 data-i18n="features.autoRestoreTitle">Auto-Restore</h3>
+        <p data-i18n="features.autoRestoreBody">Set a timer, forget about it. Sleep automatically re-enables when time's up.</p>
       </div>
       <div class="feature-card has-mascot reveal reveal-delay-3">
         <div class="feature-icon icon-gold">🔐</div>
-        <div class="feature-kicker">Setup</div>
-        <h3>No Password Prompts</h3>
-        <p>Install the helper once. Done forever. No "enter your password" every time.</p>
+        <div class="feature-kicker" data-i18n="features.setup">Setup</div>
+        <h3 data-i18n="features.noPasswordTitle">No Password Prompts</h3>
+        <p data-i18n="features.noPasswordBody">Install the helper once. Done forever. No "enter your password" every time.</p>
         <img class="feature-mascot" src="assets/mascot-celebrate.png" alt="Yellow sheep celebrating" loading="lazy" width="800" height="800">
       </div>
       <div class="feature-card has-mascot reveal reveal-delay-4">
         <div class="feature-icon icon-orange">🌙</div>
-        <div class="feature-kicker">Overnight</div>
-        <h3>Built for Long Sessions</h3>
-        <p>Claude Code, Xcode builds, LLM fine-tuning, giant downloads — close the lid, grab coffee, nothing dies.</p>
+        <div class="feature-kicker" data-i18n="features.overnight">Overnight</div>
+        <h3 data-i18n="features.longSessionsTitle">Built for Long Sessions</h3>
+        <p data-i18n="features.longSessionsBody">Claude Code, Xcode builds, LLM fine-tuning, giant downloads — close the lid, grab coffee, nothing dies.</p>
         <img class="feature-mascot" src="assets/mascot-awake.png" alt="Yellow sheep with coffee at night" loading="lazy" width="800" height="800">
       </div>
       <div class="feature-card reveal reveal-delay-5">
         <div class="feature-icon icon-teal">⏱️</div>
-        <div class="feature-kicker">Presets</div>
-        <h3>Quick Presets</h3>
-        <p>30min, 1h, 2h, 4h, 8h, 12h. One click. That's it. Plus a menu bar app that stays out of your way.</p>
+        <div class="feature-kicker" data-i18n="features.presets">Presets</div>
+        <h3 data-i18n="features.quickPresetsTitle">Quick Presets</h3>
+        <p data-i18n="features.quickPresetsBody">30min, 1h, 2h, 4h, 8h, 12h. One click. That's it. Plus a menu bar app that stays out of your way.</p>
       </div>
     </div>
   </div>
@@ -969,15 +1011,15 @@ footer a:hover { text-decoration: underline; }
 <!-- ═══ COMPARISON / WHY US ═══ -->
 <section id="comparison">
   <div class="container">
-    <div class="kicker kicker-orange reveal">Beyond caffeinate · 超越 caffeinate</div>
-    <h2 class="reveal reveal-delay-1">Why MacClosedAwake?</h2>
-    <p class="section-sub reveal reveal-delay-2">Tools like Claude Code run <code class="inline-code">caffeinate -i</code> automatically — but that only prevents idle sleep. Clamshell sleep (lid closed on battery) is a different story.</p>
+    <div class="kicker kicker-orange reveal" data-i18n="comparison.kicker">Beyond caffeinate · 超越 caffeinate</div>
+    <h2 class="reveal reveal-delay-1" data-i18n="comparison.title">Why MacClosedAwake?</h2>
+    <p class="section-sub reveal reveal-delay-2" data-i18n="comparison.sub">Tools like Claude Code run <code class="inline-code">caffeinate -i</code> automatically — but that only prevents idle sleep. Clamshell sleep (lid closed on battery) is a different story.</p>
 
     <div class="comparison-table-wrap reveal reveal-delay-3">
       <table class="comparison-table">
         <thead>
           <tr>
-            <th>Feature</th>
+            <th data-i18n="comparison.colFeature">Feature</th>
             <th>caffeinate -i<br><span style="font-weight:400;letter-spacing:0;text-transform:none;font-size:10px;color:var(--muted-dim)">(Claude Code)</span></th>
             <th>caffeinate -s</th>
             <th>Amphetamine</th>
@@ -986,45 +1028,45 @@ footer a:hover { text-decoration: underline; }
         </thead>
         <tbody>
           <tr>
-            <td>Prevents idle sleep</td>
+            <td data-i18n="comparison.row.idle">Prevents idle sleep</td>
             <td><span class="cell-yes">✅</span></td>
             <td><span class="cell-yes">✅</span></td>
             <td><span class="cell-yes">✅</span></td>
             <td class="highlight"><span class="cell-yes">✅</span></td>
           </tr>
           <tr>
-            <td>Prevents clamshell sleep (AC)</td>
+            <td data-i18n="comparison.row.clamshellAC">Prevents clamshell sleep (AC)</td>
             <td><span class="cell-no">❌</span></td>
-            <td><span class="cell-warn">⚠️ AC only</span></td>
-            <td><span class="cell-warn">⚠️ Needs config</span></td>
+            <td><span class="cell-warn" data-i18n="comparison.acOnly">⚠️ AC only</span></td>
+            <td><span class="cell-warn" data-i18n="comparison.needsConfig">⚠️ Needs config</span></td>
             <td class="highlight"><span class="cell-yes">✅</span></td>
           </tr>
           <tr>
-            <td>Prevents clamshell sleep (battery)</td>
+            <td data-i18n="comparison.row.clamshellBat">Prevents clamshell sleep (battery)</td>
             <td><span class="cell-no">❌</span></td>
             <td><span class="cell-no">❌</span></td>
             <td><span class="cell-no">❌</span></td>
             <td class="highlight"><span class="cell-yes">✅</span></td>
           </tr>
           <tr>
-            <td>Timed modes</td>
+            <td data-i18n="comparison.row.timed">Timed modes</td>
             <td><span class="cell-no">❌</span></td>
-            <td>Manual</td>
+            <td data-i18n="comparison.manual">Manual</td>
             <td><span class="cell-yes">✅</span></td>
-            <td class="highlight"><span class="cell-yes">✅</span> 30min–12h</td>
+            <td class="highlight"><span class="cell-yes">✅</span> <span data-i18n="comparison.range30to12">30min–12h</span></td>
           </tr>
           <tr>
-            <td>Menu bar UX</td>
-            <td><span class="cell-no">❌ CLI only</span></td>
-            <td><span class="cell-no">❌ CLI only</span></td>
+            <td data-i18n="comparison.row.menubar">Menu bar UX</td>
+            <td><span class="cell-no" data-i18n="comparison.cliOnly">❌ CLI only</span></td>
+            <td><span class="cell-no" data-i18n="comparison.cliOnly">❌ CLI only</span></td>
             <td><span class="cell-yes">✅</span></td>
-            <td class="highlight"><span class="cell-yes">✅</span> One click</td>
+            <td class="highlight"><span class="cell-yes">✅</span> <span data-i18n="comparison.oneClick">One click</span></td>
           </tr>
           <tr>
-            <td>One-click install</td>
+            <td data-i18n="comparison.row.oneClick">One-click install</td>
             <td><span class="cell-no">❌</span></td>
             <td><span class="cell-no">❌</span></td>
-            <td>App Store</td>
+            <td data-i18n="comparison.appStore">App Store</td>
             <td class="highlight"><span class="cell-yes">✅</span> Homebrew</td>
           </tr>
         </tbody>
@@ -1032,8 +1074,8 @@ footer a:hover { text-decoration: underline; }
     </div>
 
     <div class="callout-quote reveal reveal-delay-4">
-      Claude Code keeps your Mac awake — but not when you close the lid.<br>
-      <strong style="color:var(--gold)">MacClosedAwake does.</strong>
+      <span data-i18n="comparison.callout1">Claude Code keeps your Mac awake — but not when you close the lid.</span><br>
+      <strong style="color:var(--gold)" data-i18n="comparison.callout2">MacClosedAwake does.</strong>
       <span class="quote-attr">pmset disablesleep &gt; caffeinate -i</span>
     </div>
   </div>
@@ -1042,47 +1084,47 @@ footer a:hover { text-decoration: underline; }
 <!-- ═══ INSTALL ═══ -->
 <section id="install">
   <div class="container">
-    <div class="kicker kicker-orange reveal">Install</div>
-    <h2 class="reveal reveal-delay-1">Get started in 10 seconds</h2>
-    <p class="section-sub reveal reveal-delay-2">Three ways to install. Pick the one that feels easiest.</p>
+    <div class="kicker kicker-orange reveal" data-i18n="install.kicker">Install</div>
+    <h2 class="reveal reveal-delay-1" data-i18n="install.title">Get started in 10 seconds</h2>
+    <p class="section-sub reveal reveal-delay-2" data-i18n="install.sub">Three ways to install. Pick the one that feels easiest.</p>
 
     <div class="install-grid">
       <!-- Homebrew -->
       <div class="install-card recommended reveal">
-        <div class="method-kicker" style="color:var(--gold)">01 · Homebrew (Recommended)</div>
-        <h3>🍫 Homebrew — the simplest way</h3>
-        <p>Just paste this one command and press Enter. Homebrew handles everything. Updates via <code class="inline-code">brew upgrade</code>.</p>
+        <div class="method-kicker" style="color:var(--gold)" data-i18n="install.brewKicker">01 · Homebrew (Recommended)</div>
+        <h3 data-i18n="install.brewTitle">🍫 Homebrew — the simplest way</h3>
+        <p data-i18n="install.brewBody">Just paste this one command and press Enter. Homebrew handles everything. Updates via <code class="inline-code">brew upgrade</code>.</p>
         <div class="code-wrap">
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <button class="copy-btn" onclick="copyCode(this)" data-i18n="install.copy">Copy</button>
           <code class="code-block">brew install --cask mac-closed-awake</code>
         </div>
         <div class="brew-explainer">
-          <h5>🤔 What is Homebrew?</h5>
-          <p>A free, trusted app installer for Mac — used by millions. Think of it as an "App Store for developers." Visit <a href="https://brew.sh" target="_blank" rel="noopener">brew.sh</a> to learn more or install it.</p>
+          <h5 data-i18n="install.whatIsBrew">🤔 What is Homebrew?</h5>
+          <p data-i18n="install.brewExplain">A free, trusted app installer for Mac — used by millions. Think of it as an "App Store for developers." Visit <a href="https://brew.sh" target="_blank" rel="noopener">brew.sh</a> to learn more or install it.</p>
         </div>
       </div>
 
       <!-- Direct Download -->
       <div class="install-card reveal reveal-delay-1">
-        <div class="method-kicker" style="color:var(--orange)">02 · Direct Download</div>
-        <h3>💿 Download and drag — no commands needed</h3>
-        <p>Don't want the command line? Download the app file and drag it into Applications.</p>
+        <div class="method-kicker" style="color:var(--orange)" data-i18n="install.directKicker">02 · Direct Download</div>
+        <h3 data-i18n="install.directTitle">💿 Download and drag — no commands needed</h3>
+        <p data-i18n="install.directBody">Don't want the command line? Download the app file and drag it into Applications.</p>
         <ol>
-          <li>Go to the <a href="https://github.com/onezion12344/mac-closed-awake/releases/latest">latest release page</a>.</li>
-          <li>Click the <code class="inline-code">.dmg</code> file to download.</li>
-          <li>Double-click the downloaded file to open.</li>
-          <li>Drag <strong>MacClosedAwake.app</strong> into <strong>Applications</strong>.</li>
-          <li>Open from Applications. Done! 🎉</li>
+          <li data-i18n="install.directStep1">Go to the <a href="https://github.com/onezion12344/mac-closed-awake/releases/latest">latest release page</a>.</li>
+          <li data-i18n="install.directStep2">Click the <code class="inline-code">.dmg</code> file to download.</li>
+          <li data-i18n="install.directStep3">Double-click the downloaded file to open.</li>
+          <li data-i18n="install.directStep4">Drag <strong>MacClosedAwake.app</strong> into <strong>Applications</strong>.</li>
+          <li data-i18n="install.directStep5">Open from Applications. Done! 🎉</li>
         </ol>
       </div>
 
       <!-- Build from Source -->
       <div class="install-card reveal reveal-delay-2">
-        <div class="method-kicker" style="color:var(--teal)">03 · For Developers Only</div>
-        <h3>🔧 Build from Source</h3>
-        <p>For developers who want to run from source or contribute. Requires <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> and <a href="https://git-scm.com" target="_blank" rel="noopener">Git</a>.</p>
+        <div class="method-kicker" style="color:var(--teal)" data-i18n="install.sourceKicker">03 · For Developers Only</div>
+        <h3 data-i18n="install.sourceTitle">🔧 Build from Source</h3>
+        <p data-i18n="install.sourceBody">For developers who want to run from source or contribute. Requires <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> and <a href="https://git-scm.com" target="_blank" rel="noopener">Git</a>.</p>
         <div class="code-wrap">
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <button class="copy-btn" onclick="copyCode(this)" data-i18n="install.copy">Copy</button>
           <code class="code-block">git clone https://github.com/onezion12344/mac-closed-awake.git
 cd mac-closed-awake
 npm install &amp;&amp; npm start</code>
@@ -1091,23 +1133,23 @@ npm install &amp;&amp; npm start</code>
     </div>
 
     <div class="not-sure-box reveal">
-      <h4>🐑 Not sure which to pick?</h4>
-      <p><strong style="color:var(--cream)">Homebrew (Option 1)</strong> is the easiest — one command handles everything. Never used the command line? Try <strong style="color:var(--cream)">Direct Download (Option 2)</strong> — just drag and drop.</p>
+      <h4 data-i18n="install.notSure">🐑 Not sure which to pick?</h4>
+      <p data-i18n="install.notSureBody"><strong style="color:var(--cream)">Homebrew (Option 1)</strong> is the easiest — one command handles everything. Never used the command line? Try <strong style="color:var(--cream)">Direct Download (Option 2)</strong> — just drag and drop.</p>
     </div>
 
     <div class="terminal-helper reveal">
-      <h4>🖥️ How to open Terminal (终端) — for first-time users</h4>
-      <p style="font-size:14px;color:var(--muted);line-height:1.65;margin-bottom:16px">To run the Homebrew command, open the Terminal app on your Mac:</p>
+      <h4 data-i18n="install.openTerminal">🖥️ How to open Terminal (终端) — for first-time users</h4>
+      <p style="font-size:14px;color:var(--muted);line-height:1.65;margin-bottom:16px" data-i18n="install.openTerminalSub">To run the Homebrew command, open the Terminal app on your Mac:</p>
       <ol>
-        <li><strong>Spotlight (fastest):</strong> Press <kbd>Command</kbd> + <kbd>Space</kbd>, type <kbd>Terminal</kbd> or <kbd>终端</kbd>, press <kbd>Enter</kbd>.</li>
-        <li><strong>Finder:</strong> Applications → Utilities → Terminal.</li>
-        <li><strong>Launchpad:</strong> Search for <kbd>Terminal</kbd>.</li>
+        <li data-i18n="install.termSpotlight"><strong>Spotlight (fastest):</strong> Press <kbd>Command</kbd> + <kbd>Space</kbd>, type <kbd>Terminal</kbd> or <kbd>终端</kbd>, press <kbd>Enter</kbd>.</li>
+        <li data-i18n="install.termFinder"><strong>Finder:</strong> Applications → Utilities → Terminal.</li>
+        <li data-i18n="install.termLaunchpad"><strong>Launchpad:</strong> Search for <kbd>Terminal</kbd>.</li>
       </ol>
       <div class="tip-note">
-        <strong>💡 macOS says "Terminal wants to access..."?</strong> That's normal! Click "OK" — it's a standard permission prompt.
+        <strong data-i18n="install.termAccessQ">💡 macOS says "Terminal wants to access..."?</strong> <span data-i18n="install.termAccessA">That's normal! Click "OK" — it's a standard permission prompt.</span>
       </div>
       <div class="tip-note" style="margin-top:8px">
-        <strong>Then:</strong> Copy the <code class="inline-code">brew install --cask mac-closed-awake</code> command, paste it into Terminal, and press <kbd>Enter</kbd>. Done!
+        <strong data-i18n="install.then">Then:</strong> <span data-i18n="install.thenBody">Copy the <code class="inline-code">brew install --cask mac-closed-awake</code> command, paste it into Terminal, and press <kbd>Enter</kbd>. Done!</span>
       </div>
     </div>
   </div>
@@ -1116,57 +1158,57 @@ npm install &amp;&amp; npm start</code>
 <!-- ═══ PRICING ═══ -->
 <section id="pricing" class="container" style="padding:80px 20px;">
   <!-- TODO: swap to production Stripe links before launch -->
-  <h2 class="section-title reveal">Simple Pricing</h2>
-  <p class="section-sub reveal reveal-delay-1">One app. Pick the plan that works for you.</p>
+  <h2 class="section-title reveal" data-i18n="pricing.title">Simple Pricing</h2>
+  <p class="section-sub reveal reveal-delay-1" data-i18n="pricing.sub">One app. Pick the plan that works for you.</p>
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;max-width:900px;margin:40px auto 0;">
 
     <!-- Monthly card -->
     <div class="reveal reveal-delay-1" style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;text-align:center;">
-      <div style="font-size:12px;text-transform:uppercase;letter-spacing:2px;color:var(--teal);font-family:var(--font-mono);margin-bottom:8px;">Subscription</div>
-      <h3 style="font-family:var(--font-display);color:var(--cream);font-size:22px;margin:0 0 16px;">Monthly</h3>
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:2px;color:var(--teal);font-family:var(--font-mono);margin-bottom:8px;" data-i18n="pricing.subscription">Subscription</div>
+      <h3 style="font-family:var(--font-display);color:var(--cream);font-size:22px;margin:0 0 16px;" data-i18n="pricing.monthly">Monthly</h3>
       <div style="font-family:var(--font-display);font-size:48px;font-weight:700;color:var(--teal);">$1.29</div>
-      <div style="color:var(--cream-dim);font-size:14px;margin-bottom:24px;">/month</div>
+      <div style="color:var(--cream-dim);font-size:14px;margin-bottom:24px;" data-i18n="pricing.perMonth">/month</div>
       <ul style="text-align:left;list-style:none;padding:0;margin:0 0 28px;font-size:14px;color:var(--cream-dim);">
-        <li style="padding:6px 0;">✓ Unlimited sessions</li>
-        <li style="padding:6px 0;">✓ Forever mode</li>
-        <li style="padding:6px 0;">✓ Cancel anytime</li>
+        <li style="padding:6px 0;" data-i18n="pricing.unlimitedSessions">✓ Unlimited sessions</li>
+        <li style="padding:6px 0;" data-i18n="pricing.foreverMode">✓ Forever mode</li>
+        <li style="padding:6px 0;" data-i18n="pricing.cancelAnytime">✓ Cancel anytime</li>
       </ul>
       <!-- ⚠️ PRODUCTION WARNING: These are TEST Stripe links -->
       <!-- Before shipping: replace all buy.stripe.com/test_* URLs with production links -->
       <!-- TODO: Replace Monthly subscription link -->
-      <a href="https://buy.stripe.com/test_dRmfZbgxG4lAdDEePW4ko1K" target="_blank" class="btn btn-ghost" style="width:100%;border-color:var(--teal);color:var(--teal);justify-content:center;">Subscribe</a>
+      <a href="https://buy.stripe.com/test_dRmfZbgxG4lAdDEePW4ko1K" target="_blank" class="btn btn-ghost" style="width:100%;border-color:var(--teal);color:var(--teal);justify-content:center;" data-i18n="pricing.subscribe">Subscribe</a>
     </div>
 
     <!-- Lifetime card (featured, gold border) -->
     <div class="reveal reveal-delay-2" style="background:var(--surface);border:2px solid var(--gold);border-radius:16px;padding:32px;text-align:center;position:relative;">
-      <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--gold),var(--orange));color:#0d1b2a;font-size:11px;font-weight:700;padding:4px 14px;border-radius:20px;font-family:var(--font-mono);letter-spacing:1px;">BEST VALUE</div>
-      <div style="font-size:12px;text-transform:uppercase;letter-spacing:2px;color:var(--gold);font-family:var(--font-mono);margin-bottom:8px;">One-time</div>
-      <h3 style="font-family:var(--font-display);color:var(--cream);font-size:22px;margin:0 0 16px;">Lifetime</h3>
+      <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--gold),var(--orange));color:#0d1b2a;font-size:11px;font-weight:700;padding:4px 14px;border-radius:20px;font-family:var(--font-mono);letter-spacing:1px;" data-i18n="pricing.bestValue">BEST VALUE</div>
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:2px;color:var(--gold);font-family:var(--font-mono);margin-bottom:8px;" data-i18n="pricing.oneTime">One-time</div>
+      <h3 style="font-family:var(--font-display);color:var(--cream);font-size:22px;margin:0 0 16px;" data-i18n="pricing.lifetime">Lifetime</h3>
       <div style="font-family:var(--font-display);font-size:48px;font-weight:700;color:var(--gold);">$9</div>
-      <div style="color:var(--cream-dim);font-size:14px;margin-bottom:24px;">pay once, use forever</div>
+      <div style="color:var(--cream-dim);font-size:14px;margin-bottom:24px;" data-i18n="pricing.payOnce">pay once, use forever</div>
       <ul style="text-align:left;list-style:none;padding:0;margin:0 0 28px;font-size:14px;color:var(--cream-dim);">
-        <li style="padding:6px 0;">✓ Unlimited sessions</li>
-        <li style="padding:6px 0;">✓ Forever mode</li>
-        <li style="padding:6px 0;">✓ All future updates</li>
+        <li style="padding:6px 0;" data-i18n="pricing.unlimitedSessions">✓ Unlimited sessions</li>
+        <li style="padding:6px 0;" data-i18n="pricing.foreverMode">✓ Forever mode</li>
+        <li style="padding:6px 0;" data-i18n="pricing.allUpdates">✓ All future updates</li>
       </ul>
       <!-- TODO: Replace Lifetime purchase link -->
-      <a href="https://buy.stripe.com/test_eVqaER2GQdWaars23a4ko0s" target="_blank" class="btn btn-primary" style="width:100%;justify-content:center;">Buy Lifetime</a>
+      <a href="https://buy.stripe.com/test_eVqaER2GQdWaars23a4ko0s" target="_blank" class="btn btn-primary" style="width:100%;justify-content:center;" data-i18n="pricing.buyLifetime">Buy Lifetime</a>
     </div>
 
     <!-- Updates Pack card -->
     <div class="reveal reveal-delay-3" style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;text-align:center;">
-      <div style="font-size:12px;text-transform:uppercase;letter-spacing:2px;color:var(--orange);font-family:var(--font-mono);margin-bottom:8px;">One-time</div>
-      <h3 style="font-family:var(--font-display);color:var(--cream);font-size:22px;margin:0 0 16px;">Updates Pack</h3>
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:2px;color:var(--orange);font-family:var(--font-mono);margin-bottom:8px;" data-i18n="pricing.oneTime">One-time</div>
+      <h3 style="font-family:var(--font-display);color:var(--cream);font-size:22px;margin:0 0 16px;" data-i18n="pricing.updatesPack">Updates Pack</h3>
       <div style="font-family:var(--font-display);font-size:48px;font-weight:700;color:var(--orange);">$18</div>
-      <div style="color:var(--cream-dim);font-size:14px;margin-bottom:24px;">lifetime of updates</div>
+      <div style="color:var(--cream-dim);font-size:14px;margin-bottom:24px;" data-i18n="pricing.updatesLifetime">lifetime of updates</div>
       <ul style="text-align:left;list-style:none;padding:0;margin:0 0 28px;font-size:14px;color:var(--cream-dim);">
-        <li style="padding:6px 0;">✓ All current features</li>
-        <li style="padding:6px 0;">✓ Priority updates</li>
-        <li style="padding:6px 0;">✓ Early access to new features</li>
+        <li style="padding:6px 0;" data-i18n="pricing.currentFeatures">✓ All current features</li>
+        <li style="padding:6px 0;" data-i18n="pricing.priorityUpdates">✓ Priority updates</li>
+        <li style="padding:6px 0;" data-i18n="pricing.earlyAccess">✓ Early access to new features</li>
       </ul>
       <!-- TODO: Replace Updates purchase link -->
-      <a href="https://buy.stripe.com/test_14A28l95e9FUbvw7nu4ko16" target="_blank" class="btn btn-ghost" style="width:100%;border-color:var(--orange);color:var(--orange);justify-content:center;">Get Updates</a>
+      <a href="https://buy.stripe.com/test_14A28l95e9FUbvw7nu4ko16" target="_blank" class="btn btn-ghost" style="width:100%;border-color:var(--orange);color:var(--orange);justify-content:center;" data-i18n="pricing.getUpdates">Get Updates</a>
     </div>
 
   </div>
@@ -1175,14 +1217,14 @@ npm install &amp;&amp; npm start</code>
 <!-- ═══ VIDEO ═══ -->
 <section id="video">
   <div class="container">
-    <div class="kicker kicker-teal reveal">Product Video</div>
-    <h2 class="reveal reveal-delay-1">Watch the sheep at work</h2>
-    <p class="section-sub reveal reveal-delay-2">60 seconds of lid-closing, build-surviving, sleep-defying action.</p>
+    <div class="kicker kicker-teal reveal" data-i18n="video.kicker">Product Video</div>
+    <h2 class="reveal reveal-delay-1" data-i18n="video.title">Watch the sheep at work</h2>
+    <p class="section-sub reveal reveal-delay-2" data-i18n="video.sub">60 seconds of lid-closing, build-surviving, sleep-defying action.</p>
 
     <div class="video-wrap reveal reveal-delay-3">
       <video controls preload="metadata" poster="assets/mascot-hero.png" width="1052">
         <source src="product-video.mp4" type="video/mp4">
-        Your browser doesn't support video — <a href="product-video.mp4">download it</a>.
+        <span data-i18n="video.noSupport">Your browser doesn't support video — <a href="product-video.mp4">download it</a>.</span>
       </video>
     </div>
 
@@ -1191,9 +1233,9 @@ npm install &amp;&amp; npm start</code>
         <img src="demo.gif" alt="MacClosedAwake app demo" loading="lazy" width="400" height="600">
       </div>
       <div class="demo-copy reveal reveal-delay-1">
-        <div class="kicker kicker-gold">See it in action</div>
-        <h3>One click. Lid down. Still running.</h3>
-        <p>Pick a preset or go forever. The menu bar timer counts down while your Mac ignores every lid close. When time's up, sleep comes back on its own — no cleanup, no forgotten <code class="inline-code">pmset</code> flags.</p>
+        <div class="kicker kicker-gold" data-i18n="video.seeIt">See it in action</div>
+        <h3 data-i18n="video.demoTitle">One click. Lid down. Still running.</h3>
+        <p data-i18n="video.demoBody">Pick a preset or go forever. The menu bar timer counts down while your Mac ignores every lid close. When time's up, sleep comes back on its own — no cleanup, no forgotten <code class="inline-code">pmset</code> flags.</p>
       </div>
     </div>
   </div>
@@ -1203,12 +1245,12 @@ npm install &amp;&amp; npm start</code>
 <footer>
   <div class="footer-brand">
     <img src="assets/mascot-icon.png" alt="MacClosedAwake" loading="lazy" width="26" height="26">
-    <span>MacClosedAwake · Built by <a href="https://github.com/onezion12344">Harry Huang</a> · MIT License</span>
+    <span data-i18n="footer.brand">MacClosedAwake · Built by <a href="https://github.com/onezion12344">Harry Huang</a> · MIT License</span>
   </div>
   <div class="footer-mono">
     <a href="https://github.com/onezion12344/mac-closed-awake" target="_blank" rel="noopener">GitHub</a> ·
-    <a href="https://onezion12344.github.io/mac-closed-awake/" target="_blank" rel="noopener">Live Site</a> ·
-    <span style="color:var(--orange)">●</span> Sleep Disabled
+    <a href="https://onezion12344.github.io/mac-closed-awake/" target="_blank" rel="noopener" data-i18n="footer.liveSite">Live Site</a> ·
+    <span style="color:var(--orange)">●</span> <span data-i18n="footer.sleepDisabled">Sleep Disabled</span>
   </div>
 </footer>
 
@@ -1216,6 +1258,307 @@ npm install &amp;&amp; npm start</code>
      JAVASCRIPT
      ═══════════════════════════════════════════════ -->
 <script>
+/* ── i18n (English / 中文) ── */
+var I18N = {
+  en: {
+    _meta: {
+      title: 'MacClosedAwake — Close the lid. Stay awake.',
+      description: 'The yellow sheep keeps your Mac running — builds, deploys, and vibe coding sessions survive every lid close.'
+    },
+    'nav.features': 'Features',
+    'nav.why': 'Why Us',
+    'nav.pricing': 'Pricing',
+    'nav.install': 'Install',
+    'nav.video': 'Video',
+    'ticker.build': 'ANYBUILD · ANYRENDER · ANYDEPLOY — STILL AWAKE',
+    'ticker.lid': 'LID CLOSED · MAC AWAKE · NO EXTERNAL DISPLAY',
+    'ticker.brew': 'BREW INSTALL MAC-CLOSED-AWAKE · ● SLEEP DISABLED',
+    'hero.kicker': 'macOS Menu Bar Utility',
+    'hero.title1': 'Close the lid.',
+    'hero.title2': 'Stay awake.',
+    'hero.sub': 'The yellow sheep keeps your Mac running with the lid shut — builds keep compiling, deploys keep shipping, and your vibe coding session never dies.',
+    'hero.download': 'Download for macOS',
+    'hero.buy': 'Buy Pro — $9',
+    'hero.opensource': 'MIT Licensed · Open Source',
+    'hero.cardLabel': 'Yellow Sheep · Keep Awake',
+    'hero.sleepDisabled': 'Sleep Disabled',
+    'hero.forever': '∞ Forever Mode',
+    'features.kicker': 'Features',
+    'features.title1': 'Simple. Powerful.',
+    'features.title2': 'Always awake.',
+    'features.sub': 'One privileged helper, zero fuss. The only method that truly prevents sleep on Apple Silicon Macs — even with the lid closed.',
+    'features.core': 'Core',
+    'features.lidCloseTitle': 'Lid-Close Safe',
+    'features.lidCloseBody': 'The ONLY method that truly prevents sleep on Apple Silicon Macs. Even with the lid closed. No external display needed.',
+    'features.mode': 'Mode',
+    'features.foreverTitle': 'Forever Mode',
+    'features.foreverBody': 'No timer. No limits. Stays awake until you manually stop. Perfect for overnight runs.',
+    'features.safety': 'Safety',
+    'features.autoRestoreTitle': 'Auto-Restore',
+    'features.autoRestoreBody': "Set a timer, forget about it. Sleep automatically re-enables when time's up.",
+    'features.setup': 'Setup',
+    'features.noPasswordTitle': 'No Password Prompts',
+    'features.noPasswordBody': 'Install the helper once. Done forever. No "enter your password" every time.',
+    'features.overnight': 'Overnight',
+    'features.longSessionsTitle': 'Built for Long Sessions',
+    'features.longSessionsBody': 'Claude Code, Xcode builds, LLM fine-tuning, giant downloads — close the lid, grab coffee, nothing dies.',
+    'features.presets': 'Presets',
+    'features.quickPresetsTitle': 'Quick Presets',
+    'features.quickPresetsBody': "30min, 1h, 2h, 4h, 8h, 12h. One click. That's it. Plus a menu bar app that stays out of your way.",
+    'comparison.kicker': 'Beyond caffeinate · 超越 caffeinate',
+    'comparison.title': 'Why MacClosedAwake?',
+    'comparison.sub': 'Tools like Claude Code run <code class="inline-code">caffeinate -i</code> automatically — but that only prevents idle sleep. Clamshell sleep (lid closed on battery) is a different story.',
+    'comparison.colFeature': 'Feature',
+    'comparison.row.idle': 'Prevents idle sleep',
+    'comparison.row.clamshellAC': 'Prevents clamshell sleep (AC)',
+    'comparison.acOnly': '⚠️ AC only',
+    'comparison.needsConfig': '⚠️ Needs config',
+    'comparison.row.clamshellBat': 'Prevents clamshell sleep (battery)',
+    'comparison.row.timed': 'Timed modes',
+    'comparison.manual': 'Manual',
+    'comparison.range30to12': '30min–12h',
+    'comparison.row.menubar': 'Menu bar UX',
+    'comparison.cliOnly': '❌ CLI only',
+    'comparison.oneClick': 'One click',
+    'comparison.row.oneClick': 'One-click install',
+    'comparison.appStore': 'App Store',
+    'comparison.callout1': 'Claude Code keeps your Mac awake — but not when you close the lid.',
+    'comparison.callout2': 'MacClosedAwake does.',
+    'install.kicker': 'Install',
+    'install.title': 'Get started in 10 seconds',
+    'install.sub': 'Three ways to install. Pick the one that feels easiest.',
+    'install.brewKicker': '01 · Homebrew (Recommended)',
+    'install.brewTitle': '🍫 Homebrew — the simplest way',
+    'install.brewBody': 'Just paste this one command and press Enter. Homebrew handles everything. Updates via <code class="inline-code">brew upgrade</code>.',
+    'install.copy': 'Copy',
+    'install.copied': 'Copied!',
+    'install.whatIsBrew': '🤔 What is Homebrew?',
+    'install.brewExplain': 'A free, trusted app installer for Mac — used by millions. Think of it as an "App Store for developers." Visit <a href="https://brew.sh" target="_blank" rel="noopener">brew.sh</a> to learn more or install it.',
+    'install.directKicker': '02 · Direct Download',
+    'install.directTitle': '💿 Download and drag — no commands needed',
+    'install.directBody': "Don't want the command line? Download the app file and drag it into Applications.",
+    'install.directStep1': 'Go to the <a href="https://github.com/onezion12344/mac-closed-awake/releases/latest">latest release page</a>.',
+    'install.directStep2': 'Click the <code class="inline-code">.dmg</code> file to download.',
+    'install.directStep3': 'Double-click the downloaded file to open.',
+    'install.directStep4': 'Drag <strong>MacClosedAwake.app</strong> into <strong>Applications</strong>.',
+    'install.directStep5': 'Open from Applications. Done! 🎉',
+    'install.sourceKicker': '03 · For Developers Only',
+    'install.sourceTitle': '🔧 Build from Source',
+    'install.sourceBody': 'For developers who want to run from source or contribute. Requires <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> and <a href="https://git-scm.com" target="_blank" rel="noopener">Git</a>.',
+    'install.notSure': '🐑 Not sure which to pick?',
+    'install.notSureBody': '<strong style="color:var(--cream)">Homebrew (Option 1)</strong> is the easiest — one command handles everything. Never used the command line? Try <strong style="color:var(--cream)">Direct Download (Option 2)</strong> — just drag and drop.',
+    'install.openTerminal': '🖥️ How to open Terminal (终端) — for first-time users',
+    'install.openTerminalSub': 'To run the Homebrew command, open the Terminal app on your Mac:',
+    'install.termSpotlight': '<strong>Spotlight (fastest):</strong> Press <kbd>Command</kbd> + <kbd>Space</kbd>, type <kbd>Terminal</kbd> or <kbd>终端</kbd>, press <kbd>Enter</kbd>.',
+    'install.termFinder': '<strong>Finder:</strong> Applications → Utilities → Terminal.',
+    'install.termLaunchpad': '<strong>Launchpad:</strong> Search for <kbd>Terminal</kbd>.',
+    'install.termAccessQ': '💡 macOS says "Terminal wants to access..."?',
+    'install.termAccessA': "That's normal! Click \"OK\" — it's a standard permission prompt.",
+    'install.then': 'Then:',
+    'install.thenBody': 'Copy the <code class="inline-code">brew install --cask mac-closed-awake</code> command, paste it into Terminal, and press <kbd>Enter</kbd>. Done!',
+    'pricing.title': 'Simple Pricing',
+    'pricing.sub': 'One app. Pick the plan that works for you.',
+    'pricing.subscription': 'Subscription',
+    'pricing.monthly': 'Monthly',
+    'pricing.perMonth': '/month',
+    'pricing.unlimitedSessions': '✓ Unlimited sessions',
+    'pricing.foreverMode': '✓ Forever mode',
+    'pricing.cancelAnytime': '✓ Cancel anytime',
+    'pricing.subscribe': 'Subscribe',
+    'pricing.bestValue': 'BEST VALUE',
+    'pricing.oneTime': 'One-time',
+    'pricing.lifetime': 'Lifetime',
+    'pricing.payOnce': 'pay once, use forever',
+    'pricing.allUpdates': '✓ All future updates',
+    'pricing.buyLifetime': 'Buy Lifetime',
+    'pricing.updatesPack': 'Updates Pack',
+    'pricing.updatesLifetime': 'lifetime of updates',
+    'pricing.currentFeatures': '✓ All current features',
+    'pricing.priorityUpdates': '✓ Priority updates',
+    'pricing.earlyAccess': '✓ Early access to new features',
+    'pricing.getUpdates': 'Get Updates',
+    'video.kicker': 'Product Video',
+    'video.title': 'Watch the sheep at work',
+    'video.sub': '60 seconds of lid-closing, build-surviving, sleep-defying action.',
+    'video.noSupport': 'Your browser doesn\'t support video — <a href="product-video.mp4">download it</a>.',
+    'video.seeIt': 'See it in action',
+    'video.demoTitle': 'One click. Lid down. Still running.',
+    'video.demoBody': "Pick a preset or go forever. The menu bar timer counts down while your Mac ignores every lid close. When time's up, sleep comes back on its own — no cleanup, no forgotten <code class=\"inline-code\">pmset</code> flags.",
+    'footer.brand': 'MacClosedAwake · Built by <a href="https://github.com/onezion12344">Harry Huang</a> · MIT License',
+    'footer.liveSite': 'Live Site',
+    'footer.sleepDisabled': 'Sleep Disabled'
+  },
+  zh: {
+    _meta: {
+      title: 'MacClosedAwake — 合上盖子，保持唤醒',
+      description: '黄羊让你的 Mac 合盖也能持续运行 —— 构建、部署、氛围编程，每一次合盖都不中断。'
+    },
+    'nav.features': '功能',
+    'nav.why': '为什么选我们',
+    'nav.pricing': '价格',
+    'nav.install': '安装',
+    'nav.video': '视频',
+    'ticker.build': '任意构建 · 任意渲染 · 任意部署 —— 持续唤醒',
+    'ticker.lid': '合盖 · Mac 不睡 · 无需外接显示器',
+    'ticker.brew': 'BREW INSTALL MAC-CLOSED-AWAKE · ● 已禁用睡眠',
+    'hero.kicker': 'macOS 菜单栏小工具',
+    'hero.title1': '合上盖子。',
+    'hero.title2': '保持唤醒。',
+    'hero.sub': '黄羊让你的 Mac 在合盖时持续运行 —— 构建继续编译，部署继续发布，你的氛围编程会话永不中断。',
+    'hero.download': '下载 macOS 版',
+    'hero.buy': '购买专业版 — $9',
+    'hero.opensource': 'MIT 开源 · 开放源代码',
+    'hero.cardLabel': '黄羊 · 保持唤醒',
+    'hero.sleepDisabled': '已禁用睡眠',
+    'hero.forever': '∞ 永久模式',
+    'features.kicker': '功能',
+    'features.title1': '简洁。强大。',
+    'features.title2': '始终唤醒。',
+    'features.sub': '一个特权辅助程序，零烦恼。在 Apple Silicon Mac 上唯一真正防止睡眠的方法 —— 即使合上盖子。',
+    'features.core': '核心',
+    'features.lidCloseTitle': '合盖安全',
+    'features.lidCloseBody': '在 Apple Silicon Mac 上唯一真正防止睡眠的方法。即使合上盖子。无需外接显示器。',
+    'features.mode': '模式',
+    'features.foreverTitle': '永久模式',
+    'features.foreverBody': '无计时器。无限制。保持唤醒直到你手动停止。非常适合通宵运行。',
+    'features.safety': '安全',
+    'features.autoRestoreTitle': '自动恢复',
+    'features.autoRestoreBody': '设置计时器，然后忘掉它。时间一到，睡眠会自动重新启用。',
+    'features.setup': '设置',
+    'features.noPasswordTitle': '无需密码提示',
+    'features.noPasswordBody': '辅助程序安装一次，永久搞定。再也不用每次都「输入密码」。',
+    'features.overnight': '通宵',
+    'features.longSessionsTitle': '为长会话而生',
+    'features.longSessionsBody': 'Claude Code、Xcode 构建、大模型微调、超大下载 —— 合上盖子，拿杯咖啡，什么都不中断。',
+    'features.presets': '预设',
+    'features.quickPresetsTitle': '快速预设',
+    'features.quickPresetsBody': '30 分钟、1 小时、2 小时、4 小时、8 小时、12 小时。一键搞定。外加一个不打扰你的菜单栏应用。',
+    'comparison.kicker': '超越 caffeinate · 超越 caffeinate',
+    'comparison.title': '为什么选 MacClosedAwake？',
+    'comparison.sub': '像 Claude Code 这样的工具会自动运行 <code class="inline-code">caffeinate -i</code> —— 但那只能防止空闲睡眠。合盖睡眠（电池模式合盖）完全是另一回事。',
+    'comparison.colFeature': '功能',
+    'comparison.row.idle': '防止空闲睡眠',
+    'comparison.row.clamshellAC': '防止合盖睡眠（接电源）',
+    'comparison.acOnly': '⚠️ 仅电源',
+    'comparison.needsConfig': '⚠️ 需配置',
+    'comparison.row.clamshellBat': '防止合盖睡眠（电池）',
+    'comparison.row.timed': '定时模式',
+    'comparison.manual': '手动',
+    'comparison.range30to12': '30 分钟–12 小时',
+    'comparison.row.menubar': '菜单栏体验',
+    'comparison.cliOnly': '❌ 仅命令行',
+    'comparison.oneClick': '一键',
+    'comparison.row.oneClick': '一键安装',
+    'comparison.appStore': 'App Store',
+    'comparison.callout1': 'Claude Code 让你的 Mac 保持唤醒 —— 但合盖时不行。',
+    'comparison.callout2': 'MacClosedAwake 可以。',
+    'install.kicker': '安装',
+    'install.title': '10 秒上手',
+    'install.sub': '三种安装方式。选最顺手的那个。',
+    'install.brewKicker': '01 · Homebrew（推荐）',
+    'install.brewTitle': '🍫 Homebrew —— 最简单的方式',
+    'install.brewBody': '只需粘贴这一条命令并按回车。Homebrew 搞定一切。通过 <code class="inline-code">brew upgrade</code> 更新。',
+    'install.copy': '复制',
+    'install.copied': '已复制！',
+    'install.whatIsBrew': '🤔 Homebrew 是什么？',
+    'install.brewExplain': '一个免费、可信的 Mac 应用安装器 —— 数百万人使用。可以把它看作「开发者的 App Store」。访问 <a href="https://brew.sh" target="_blank" rel="noopener">brew.sh</a> 了解更多或安装它。',
+    'install.directKicker': '02 · 直接下载',
+    'install.directTitle': '💿 下载并拖入 —— 无需命令',
+    'install.directBody': '不想用命令行？下载应用文件，拖进「应用程序」即可。',
+    'install.directStep1': '前往 <a href="https://github.com/onezion12344/mac-closed-awake/releases/latest">最新发布页面</a>。',
+    'install.directStep2': '点击 <code class="inline-code">.dmg</code> 文件下载。',
+    'install.directStep3': '双击下载的文件打开。',
+    'install.directStep4': '把 <strong>MacClosedAwake.app</strong> 拖进 <strong>应用程序</strong>。',
+    'install.directStep5': '从「应用程序」打开。搞定！🎉',
+    'install.sourceKicker': '03 · 仅限开发者',
+    'install.sourceTitle': '🔧 从源码构建',
+    'install.sourceBody': '适合想从源码运行或贡献代码的开发者。需要 <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> 和 <a href="https://git-scm.com" target="_blank" rel="noopener">Git</a>。',
+    'install.notSure': '🐑 不知道选哪个？',
+    'install.notSureBody': '<strong style="color:var(--cream)">Homebrew（方式一）</strong>最简单 —— 一条命令搞定一切。从没用过命令行？试试<strong style="color:var(--cream)">直接下载（方式二）</strong> —— 拖拽即可。',
+    'install.openTerminal': '🖥️ 如何打开终端（Terminal）—— 写给新手',
+    'install.openTerminalSub': '要运行 Homebrew 命令，先打开 Mac 上的「终端」应用：',
+    'install.termSpotlight': '<strong>聚焦搜索（最快）：</strong>按 <kbd>Command</kbd> + <kbd>空格</kbd>，输入 <kbd>Terminal</kbd> 或 <kbd>终端</kbd>，按 <kbd>回车</kbd>。',
+    'install.termFinder': '<strong>访达：</strong>应用程序 → 实用工具 → 终端。',
+    'install.termLaunchpad': '<strong>启动台：</strong>搜索 <kbd>Terminal</kbd> 或 <kbd>终端</kbd>。',
+    'install.termAccessQ': '💡 macOS 提示「终端想要访问…」？',
+    'install.termAccessA': '这是正常的！点「好」即可 —— 这是标准的权限提示。',
+    'install.then': '然后：',
+    'install.thenBody': '复制 <code class="inline-code">brew install --cask mac-closed-awake</code> 命令，粘贴到终端，按 <kbd>回车</kbd>。搞定！',
+    'pricing.title': '简单定价',
+    'pricing.sub': '一个应用。选适合你的方案。',
+    'pricing.subscription': '订阅',
+    'pricing.monthly': '月付',
+    'pricing.perMonth': '/月',
+    'pricing.unlimitedSessions': '✓ 无限次会话',
+    'pricing.foreverMode': '✓ 永久模式',
+    'pricing.cancelAnytime': '✓ 随时取消',
+    'pricing.subscribe': '订阅',
+    'pricing.bestValue': '最超值',
+    'pricing.oneTime': '一次性',
+    'pricing.lifetime': '终身版',
+    'pricing.payOnce': '一次付费，永久使用',
+    'pricing.allUpdates': '✓ 所有未来更新',
+    'pricing.buyLifetime': '购买终身版',
+    'pricing.updatesPack': '更新包',
+    'pricing.updatesLifetime': '终身更新',
+    'pricing.currentFeatures': '✓ 所有当前功能',
+    'pricing.priorityUpdates': '✓ 优先更新',
+    'pricing.earlyAccess': '✓ 新功能抢先体验',
+    'pricing.getUpdates': '获取更新',
+    'video.kicker': '产品视频',
+    'video.title': '看黄羊如何工作',
+    'video.sub': '60 秒的合盖、扛构建、抗睡眠实战。',
+    'video.noSupport': '你的浏览器不支持视频 —— <a href="product-video.mp4">下载视频</a>。',
+    'video.seeIt': '实战演示',
+    'video.demoTitle': '一键。合盖。仍在运行。',
+    'video.demoBody': '选个预设或用永久模式。菜单栏计时器倒数，你的 Mac 无视每一次合盖。时间到，睡眠自动恢复 —— 无需清理，没有遗忘的 <code class="inline-code">pmset</code> 参数。',
+    'footer.brand': 'MacClosedAwake · 由 <a href="https://github.com/onezion12344">Harry Huang</a> 开发 · MIT 许可证',
+    'footer.liveSite': '在线站点',
+    'footer.sleepDisabled': '已禁用睡眠'
+  }
+};
+
+(function() {
+  function getLang() {
+    var saved;
+    try { saved = localStorage.getItem('mca-lang'); } catch (e) {}
+    if (saved === 'en' || saved === 'zh') return saved;
+    return (navigator.language || 'en').toLowerCase().indexOf('zh') === 0 ? 'zh' : 'en';
+  }
+  function applyLang(lang) {
+    var dict = I18N[lang] || I18N.en;
+    document.querySelectorAll('[data-i18n]').forEach(function(el) {
+      var key = el.getAttribute('data-i18n');
+      if (dict[key] != null) el.innerHTML = dict[key];
+    });
+    document.documentElement.classList.toggle('lang-zh', lang === 'zh');
+    document.documentElement.setAttribute('lang', lang === 'zh' ? 'zh-CN' : 'en');
+    if (dict._meta) {
+      document.title = dict._meta.title;
+      var desc = document.querySelector('meta[name="description"]');
+      if (desc) desc.setAttribute('content', dict._meta.description);
+    }
+    var toggle = document.getElementById('langToggle');
+    if (toggle) {
+      toggle.querySelectorAll('span[data-lang]').forEach(function(s) {
+        s.classList.toggle('active', s.getAttribute('data-lang') === lang);
+      });
+    }
+    try { localStorage.setItem('mca-lang', lang); } catch (e) {}
+  }
+  // Initial apply
+  document.addEventListener('DOMContentLoaded', function() { applyLang(getLang()); });
+  // Also run immediately in case DOM is already parsed
+  if (document.readyState !== 'loading') applyLang(getLang());
+  // Toggle click handler
+  document.addEventListener('click', function(e) {
+    var span = e.target.closest && e.target.closest('#langToggle span[data-lang]');
+    if (!span) return;
+    e.preventDefault();
+    applyLang(span.getAttribute('data-lang'));
+  });
+})();
+
 /* ── Starfield Canvas ── */
 (function() {
   const canvas = document.getElementById('starfield');
@@ -1317,11 +1660,14 @@ function copyCode(btn) {
   var codeEl = btn.parentElement.querySelector('.code-block');
   if (!codeEl) return;
   var text = codeEl.textContent || codeEl.innerText;
+  var lang = (document.documentElement.getAttribute('lang') || '').indexOf('zh') === 0 ? 'zh' : 'en';
+  var copiedText = lang === 'zh' ? '已复制！' : 'Copied!';
+  var idleText = lang === 'zh' ? '复制' : 'Copy';
   navigator.clipboard.writeText(text).then(function() {
-    btn.textContent = 'Copied!';
+    btn.textContent = copiedText;
     btn.classList.add('copied');
     setTimeout(function() {
-      btn.textContent = 'Copy';
+      btn.textContent = idleText;
       btn.classList.remove('copied');
     }, 1800);
   });
