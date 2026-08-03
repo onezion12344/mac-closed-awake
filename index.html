@@ -176,6 +176,58 @@
     box-shadow: 0 0 8px rgba(232, 147, 90, 0.6);
     animation: pulse 2s ease-in-out infinite;
   }
+
+  /* Low Power Mode toggle */
+  .lpm-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .lpm-row:hover { border-color: rgba(58, 138, 138, 0.5); }
+  .lpm-row input { display: none; }
+  .lpm-toggle {
+    width: 38px; height: 20px;
+    border-radius: 20px;
+    background: var(--border);
+    position: relative;
+    transition: background 0.25s ease;
+    flex-shrink: 0;
+  }
+  .lpm-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--cream);
+    transition: transform 0.25s ease;
+  }
+  .lpm-row input:checked + .lpm-toggle {
+    background: var(--teal);
+  }
+  .lpm-row input:checked + .lpm-toggle::after {
+    transform: translateX(18px);
+  }
+  .lpm-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--cream);
+  }
+  .lpm-desc {
+    font-size: 10px;
+    color: var(--muted);
+    margin-left: auto;
+    text-align: right;
+    line-height: 1.4;
+  }
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
@@ -468,6 +520,16 @@
     <span id="statusText">Sleep normal</span>
   </div>
 
+  <!-- Low Power Mode toggle -->
+  <label class="lpm-row" id="lpmRow" onclick="toggleLowPower()">
+    <input type="checkbox" id="lpmCheckbox">
+    <div class="lpm-toggle"></div>
+    <div>
+      <div class="lpm-label">Low Power Mode while awake</div>
+    </div>
+    <div class="lpm-desc">Cooler &amp; quieter lid-closed runs</div>
+  </label>
+
   <!-- Upgrade banner (shown when free user hits limit) -->
   <div class="upgrade-banner" id="upgradeBanner" onclick="openUpgrade()">
     <div class="upgrade-title">&#x2B50; Upgrade to Pro</div>
@@ -518,6 +580,7 @@ let running = false;
 let isPro = false;
 let totalSecs = 0;
 let forever = false;
+let lowPowerEnabled = false;
 
 // Ring math
 const CIRC = 2 * Math.PI * 80; // ~502
@@ -541,6 +604,18 @@ function setActive(seconds) {
     b.classList.toggle('selected', parseInt(b.dataset.secs) === seconds);
   });
   $('foreverBtn').classList.toggle('active', seconds === 0);
+}
+
+async function toggleLowPower() {
+  const checkbox = $('lpmCheckbox')
+  const want = !checkbox.checked
+  const r = await window.mca.setLowPowerPreference(want)
+  if (r.ok) {
+    lowPowerEnabled = r.enabled
+    checkbox.checked = r.enabled
+  } else {
+    checkbox.checked = lowPowerEnabled
+  }
 }
 
 async function start(secs) {
@@ -655,6 +730,9 @@ window.mca.onProStatus((pro) => {
 
 // Init
 window.mca.status().then(s => {
+  lowPowerEnabled = s.lowPowerEnabled || false;
+  $('lpmCheckbox').checked = lowPowerEnabled;
+
   if (s.helperInstalled === false) {
     $('installOverlay').classList.add('show');
   }

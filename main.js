@@ -25,6 +25,8 @@ const HELPER_SOCKET = '/tmp/com.mca.helper.sock'
 const HELPER_PLIST = path.join(app.getPath('home'), 'Library/LaunchAgents/com.mca.helper.plist')
 const HELPER_BIN = path.join(app.getPath('home'), '.mca/lidar-helper')
 const STORE_PATH = path.join(app.getPath('userData'), 'config.json')
+const CAFFEINE_PID_FILE = '/tmp/mca.caffeinate.pid'
+const LOWPOWER_PID_FILE = '/tmp/mca.lowpower.pid'
 
 // ── Config store ──
 function loadConfig() {
@@ -36,17 +38,40 @@ function saveConfig(cfg) {
 }
 
 // ── Caffeinate process management ──
+function killProcessByPidFile(pidFile) {
+  try {
+    const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10)
+    if (pid) {
+      try { process.kill(pid, 'SIGTERM') } catch {}
+      // give it a moment, then SIGKILL
+      setTimeout(() => { try { process.kill(pid, 'SIGKILL') } catch {} }, 300)
+    }
+  } catch {}
+  try { fs.unlinkSync(pidFile) } catch {}
+}
+
 function startCaffeinate() {
   if (caffeineProcess) return
-  
-  // Use caffeine with UI notification and idle prevention
-  caffeineProcess = spawn('caffeinate', ['-u', '-i', '-t', '86400'], { detached: true })
-  
+  // Clean up any stale caffeinate from a previous crash
+  killProcessByPidFile(CAFFEINE_PID_FILE)
+
+  // -i prevents idle system sleep. We removed -u so user-activity assertions don't fight Low Power Mode UI.
+  caffeineProcess = spawn('caffeinate', ['-i', '-t', '86400'], { detached: true })
+
+  if (caffeineProcess.pid) {
+    fs.writeFileSync(CAFFEINE_PID_FILE, String(caffeineProcess.pid))
+  }
+
+  caffeineProcess.on('exit', () => {
+    caffeineProcess = null
+    try { fs.unlinkSync(CAFFEINE_PID_FILE) } catch {}
+  })
+
   caffeineProcess.on('error', (err) => {
     logError('Failed to start caffeine:', err.message)
     caffeineProcess = null
   })
-  
+
   caffeineProcess.unref()
   logError('Started caffeine process')
 }
@@ -59,6 +84,7 @@ function stopCaffeinate() {
     caffeineProcess = null
     logError('Stopped caffeine process')
   }
+  killProcessByPidFile(CAFFEINE_PID_FILE)
 }
 
 function restartCaffeinate() {
@@ -92,6 +118,18 @@ get_status() {
   pmset -g custom | grep -o 'disablesleep [0-9]' | awk '{print $2}'
 }
 
+lowpower_on() {
+  sudo -n pmset -a lowpowermode 1
+}
+
+lowpower_off() {
+  sudo -n pmset -a lowpowermode 0
+}
+
+lowpower_status() {
+  pmset -g custom | grep -o 'lowpowermode [0-9]' | awk '{print $2}'
+}
+
 handle_lid_close() {
   echo "LID_CLOSE" > /tmp/mca.lidevent
 }
@@ -110,6 +148,9 @@ while true; do
         DISABLE) disable_sleep && echo "OK" ;;
         ENABLE) enable_sleep && echo "OK" ;;
         STATUS) get_status ;;
+        LOWPOWER_ON) lowpower_on && echo "OK" ;;
+        LOWPOWER_OFF) lowpower_off && echo "OK" ;;
+        LOWPOWER_STATUS) lowpower_status ;;
         LID_CLOSE) handle_lid_close && echo "OK" ;;
         *) echo "ERR" ;;
       esac
@@ -122,6 +163,9 @@ while true; do
         DISABLE) disable_sleep && echo "OK" ;;
         ENABLE) enable_sleep && echo "OK" ;;
         STATUS) get_status ;;
+        LOWPOWER_ON) lowpower_on && echo "OK" ;;
+        LOWPOWER_OFF) lowpower_off && echo "OK" ;;
+        LOWPOWER_STATUS) lowpower_status ;;
         LID_CLOSE) handle_lid_close && echo "OK" ;;
       esac
     done
@@ -136,10 +180,13 @@ function directPmset(action) {
     if (action === 'DISABLE') cmd = 'sudo -n pmset -a disablesleep 1'
     else if (action === 'ENABLE') cmd = 'sudo -n pmset -a disablesleep 0'
     else if (action === 'STATUS') cmd = 'sudo -n pmset -g custom | grep -o "disablesleep [0-9]" | awk "{print \\$2}"'
+    else if (action === 'LOWPOWER_ON') cmd = 'sudo -n pmset -a lowpowermode 1'
+    else if (action === 'LOWPOWER_OFF') cmd = 'sudo -n pmset -a lowpowermode 0'
+    else if (action === 'LOWPOWER_STATUS') cmd = 'sudo -n pmset -g custom | grep -o "lowpowermode [0-9]" | awk "{print \\$2}"'
     else { reject(new Error('Unknown action')); return }
     exec(cmd, (err, stdout) => {
       if (err) reject(err)
-      else if (action === 'STATUS') resolve({ ok: true, status: parseInt(stdout.trim()) || 0 })
+      else if (action === 'STATUS' || action === 'LOWPOWER_STATUS') resolve({ ok: true, status: parseInt(stdout.trim()) || 0 })
       else resolve({ ok: true })
     })
   })
@@ -247,6 +294,49 @@ function checkHelper() {
   })
 }
 
+// ── Low Power Mode management ──
+// Low Power Mode is independent of sleep, but macOS's UI can hide it while sleep is globally disabled.
+// We optionally enable LPM while awake so the Mac runs cooler in clamshell mode.
+async function getLowPowerStatus() {
+  try {
+    const result = await sendHelper('LOWPOWER_STATUS')
+    return result.status || 0
+  } catch (e) {
+    logError('Failed to read lowpowermode status:', e.message)
+    return 0
+  }
+}
+
+async function applyLowPowerMode(enabled) {
+  const cfg = loadConfig()
+  if (enabled) {
+    // Save current state before turning on
+    if (cfg.savedLowPowerMode === undefined) {
+      cfg.savedLowPowerMode = await getLowPowerStatus()
+    }
+    await sendHelper('LOWPOWER_ON')
+    cfg.lowPowerModeActive = true
+  } else {
+    // Restore to saved state (or 0 if no saved state)
+    const restoreTo = cfg.savedLowPowerMode !== undefined ? cfg.savedLowPowerMode : 0
+    await sendHelper(restoreTo ? 'LOWPOWER_ON' : 'LOWPOWER_OFF')
+    cfg.lowPowerModeActive = false
+    cfg.savedLowPowerMode = undefined
+  }
+  saveConfig(cfg)
+}
+
+function getLowPowerPreference() {
+  return loadConfig().lowPowerModeEnabled === true
+}
+
+function setLowPowerPreference(enabled) {
+  const cfg = loadConfig()
+  cfg.lowPowerModeEnabled = enabled
+  saveConfig(cfg)
+  return enabled
+}
+
 // ── Timer ──
 let powerMonitor = null
 
@@ -322,19 +412,23 @@ function startTimer(secs) {
   if (secs === 0) {
     // Forever mode
     forever = true
+    saveConfig({ ...loadConfig(), isAwake: true, remaining: -1, totalDuration: 0 })
     if (win && !win.isDestroyed()) win.webContents.send('tick', -1)
     return
   }
 
   remaining = secs
   totalDuration = secs
+  saveConfig({ ...loadConfig(), isAwake: true, remaining, totalDuration })
   restoreTimer = setInterval(() => {
     remaining--
+    saveConfig({ ...loadConfig(), remaining })
     if (win && !win.isDestroyed()) win.webContents.send('tick', remaining)
     updateTrayMenu()
     if (remaining <= 0) {
       clearInterval(restoreTimer)
       sendHelper('ENABLE').catch(() => {})
+      saveConfig({ ...loadConfig(), isAwake: false, remaining: 0 })
       if (win && !win.isDestroyed()) win.webContents.send('restored')
     }
   }, 1000)
@@ -347,11 +441,19 @@ ipcMain.handle('start', async (_, secs) => {
   try {
     lidCloseCount = 0
     await sendHelper('DISABLE')
-    
+
     // Start caffeine process and power monitor to handle lid events
     startCaffeinate()
     startPowerMonitor()
-    
+
+    // Optionally enable Low Power Mode for cooler clamshell operation
+    if (getLowPowerPreference()) {
+      await applyLowPowerMode(true)
+    }
+
+    // Mark active session so crash recovery can resume or clean up
+    saveConfig({ ...loadConfig(), isAwake: true })
+
     startTimer(secs)
     return { ok: true }
   } catch (e) {
@@ -362,14 +464,21 @@ ipcMain.handle('start', async (_, secs) => {
 ipcMain.handle('stop', async () => {
   clearInterval(restoreTimer)
   forever = false
-  
+
   // Stop all monitoring processes
   stopCaffeinate()
   stopPowerMonitor()
-  
+
+  // Restore Low Power Mode if we changed it
+  const cfg = loadConfig()
+  if (cfg.lowPowerModeActive) {
+    await applyLowPowerMode(false).catch(() => {})
+  }
+
   try {
     await sendHelper('ENABLE')
     remaining = 0
+    saveConfig({ ...loadConfig(), isAwake: false })
     return { ok: true }
   } catch (e) {
     return { ok: false, error: e.message }
@@ -384,7 +493,17 @@ ipcMain.handle('status', async () => {
     // Get pmset status via helper
     const result = await sendHelper('STATUS')
     const disabled = result.status === 1
-    return { helperInstalled: true, disabled, remaining: forever ? -1 : remaining, elapsed: totalDuration - remaining }
+    const lowPowerStatus = await getLowPowerStatus()
+    const cfg = loadConfig()
+    return {
+      helperInstalled: true,
+      disabled,
+      remaining: forever ? -1 : remaining,
+      elapsed: totalDuration - remaining,
+      lowPowerMode: lowPowerStatus === 1,
+      lowPowerEnabled: cfg.lowPowerModeEnabled === true,
+      isAwake: cfg.isAwake === true
+    }
   } catch {
     return { helperInstalled: false, disabled: false, remaining: 0 }
   }
@@ -408,6 +527,23 @@ ipcMain.handle('upgrade', () => {
   shell.openExternal(STRIPE_LIFETIME_URL)
 })
 
+ipcMain.handle('get-low-power-preference', () => {
+  return { enabled: getLowPowerPreference() }
+})
+
+ipcMain.handle('set-low-power-preference', async (_, enabled) => {
+  try {
+    setLowPowerPreference(enabled)
+    // If we're currently awake, apply/unapply immediately
+    if (forever || remaining > 0) {
+      await applyLowPowerMode(enabled)
+    }
+    return { ok: true, enabled }
+  } catch (e) {
+    return { ok: false, error: e.message }
+  }
+})
+
 ipcMain.handle('activate-license', async (_, licenseKey) => {
   try {
     const result = verifyActivationCode(licenseKey)
@@ -426,6 +562,26 @@ ipcMain.handle('activate-license', async (_, licenseKey) => {
   }
 })
 
+// ── Unified cleanup ──
+async function doCleanup() {
+  logError('Running cleanup before quit')
+  stopCaffeinate()
+  stopPowerMonitor()
+  clearInterval(restoreTimer)
+
+  const cfg = loadConfig()
+  if (cfg.lowPowerModeActive) {
+    await applyLowPowerMode(false).catch(() => {})
+  }
+
+  try {
+    await sendHelper('ENABLE')
+    saveConfig({ ...loadConfig(), isAwake: false })
+  } catch (e) {
+    logError('Failed to re-enable sleep during cleanup:', e.message)
+  }
+}
+
 // ── Tray ──
 function updateTrayMenu() {
   if (!tray) return
@@ -439,19 +595,13 @@ function updateTrayMenu() {
     items.push({ label: 'Upgrade to Pro', click: () => shell.openExternal(STRIPE_LIFETIME_URL) })
   }
   items.push({ type: 'separator' })
-  items.push({ 
-    label: 'Quit', 
-    click: () => { 
-      // Clean up before quitting
-      stopCaffeinate()
-      stopPowerMonitor()
-      clearInterval(restoreTimer)
-      sendHelper('ENABLE').catch(() => {})
-      setTimeout(() => { 
-        tray = null
-        app.quit() 
-      }, 500)
-    } 
+  items.push({
+    label: 'Quit',
+    click: async () => {
+      await doCleanup()
+      tray = null
+      app.quit()
+    }
   })
   tray.setContextMenu(Menu.buildFromTemplate(items))
 }
@@ -486,32 +636,58 @@ function createWindow() {
 }
 
 // ── App ──
-app.whenReady().then(() => {
+let cleanupInProgress = false
+
+app.whenReady().then(async () => {
   createWindow()
   tray = new Tray(path.join(__dirname, 'icon.icns'))
   tray.setToolTip('MacClosedAwake — Lid closed. Still awake.')
   updateTrayMenu()
+
+  // Crash/recovery: if we died while awake, resume state; otherwise clean up stale pmset flags.
+  try {
+    const cfg = loadConfig()
+    const status = await sendHelper('STATUS')
+    const sleepDisabled = status.status === 1
+
+    if (cfg.isAwake && sleepDisabled) {
+      // Resume the previous session
+      forever = cfg.remaining === -1 || cfg.remaining === undefined
+      remaining = forever ? 0 : (cfg.remaining || 0)
+      totalDuration = cfg.totalDuration || remaining
+      if (forever) {
+        if (win && !win.isDestroyed()) win.webContents.send('tick', -1)
+      } else if (remaining > 0) {
+        startTimer(remaining)
+      }
+      startCaffeinate()
+      startPowerMonitor()
+      if (cfg.lowPowerModeEnabled) await applyLowPowerMode(true).catch(() => {})
+      updateTrayMenu()
+      logError('Resumed previous awake session')
+    } else if (sleepDisabled) {
+      // Stale disablesleep from a crash — restore
+      logError('Cleaning up stale disablesleep from previous crash')
+      await doCleanup()
+    }
+  } catch (e) {
+    logError('Startup recovery check failed:', e.message)
+  }
 })
 
 app.on('window-all-closed', () => {
-  // Clean up all background processes before quitting
-  stopCaffeinate()
-  stopPowerMonitor()
+  // Mac apps typically stay alive via tray; no cleanup here.
 })
 
-// Force quit handler - clean up everything
-app.on('before-quit', () => {
-  console.log('[MCA] Before quit - cleaning up...')
-  
-  // Stop all timers
-  clearInterval(restoreTimer)
-  
-  // Stop background processes
-  stopCaffeinate()
-  stopPowerMonitor()
-  
-  // Disable sleep before exiting if still active
-  sendHelper('ENABLE').catch(() => {})
-  
-  console.log('[MCA] Cleanup complete')
+// Clean up before exiting. Prevent default, do async cleanup, then actually quit.
+app.on('before-quit', async (e) => {
+  if (cleanupInProgress) return
+  cleanupInProgress = true
+  e.preventDefault()
+  await doCleanup()
+  app.quit()
+})
+
+app.on('will-quit', () => {
+  console.log('[MCA] Quit complete')
 })
