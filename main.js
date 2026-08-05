@@ -6,11 +6,13 @@ const net = require('net')
 
 const { verifyActivationCode } = require('./license')
 
-// ⚠️ PRODUCTION WARNING: This is a TEST Stripe link.
-// Before shipping: replace 'https://buy.stripe.com/test_eVqaER2GQdWaars23a4ko0s' 
-// with your production lifetime payment link from Stripe dashboard
-const STRIPE_LIFETIME_URL = 'https://buy.stripe.com/test_eVqaER2GQdWaars23a4ko0s'
-// TODO: Replace with production Stripe lifetime payment link
+// ⚠️ PRODUCTION WARNING: This is a TEST Stripe link with test-mode success_url.
+// Before shipping: (1) swap to production Payment Link URL, (2) set production
+// success_url to https://mca.onezion.top/success?session_id={CHECKOUT_SESSION_ID}
+// in the Stripe dashboard (Payment Links → Edit → After payment → Redirect to URL).
+// Also replace the Stripe secret key in the CF Worker with your production key.
+const STRIPE_LIFETIME_URL = 'https://buy.stripe.com/test_eVqaER2GQdWaars23a4ko0s?success_url=https://mca.onezion12344.workers.dev/success?session_id={CHECKOUT_SESSION_ID}'
+// TODO: Replace with production Stripe lifetime payment link + live Worker domain
 
 let win, tray
 let restoreTimer = null
