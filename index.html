@@ -634,8 +634,16 @@ async function start(secs) {
     $('statusPill').classList.add('active');
     $('statusText').textContent = forever ? 'Sleep disabled — forever' : 'Sleep disabled';
     $('timerLabel').textContent = forever ? 'forever' : 'remaining';
-    if (!forever) $('timer').textContent = fmt(secs);
-    else $('timer').textContent = '∞';
+    if (!forever) {
+      $('timer').textContent = fmt(secs);
+      setRing(1); // ring starts full, drains as time counts down
+    } else {
+      $('timer').textContent = '∞';
+      setRing(1);
+    }
+  } else {
+    $('statusText').textContent = r.error || 'Failed to start';
+    setTimeout(() => { if (!running) $('statusText').textContent = 'Sleep normal'; }, 3000);
   }
 }
 
@@ -697,9 +705,14 @@ window.mca.onTick((n) => {
   if (!running) return;
   if (forever) {
     $('timer').textContent = '∞';
+    setRing(1);
   } else {
     $('timer').textContent = fmt(n);
-    setRing(1 - (n / totalSecs));
+    // Ring drains from full to empty as time counts down.
+    // setRing(pct) does: dashoffset = CIRC - CIRC*pct
+    //   pct=1 → dashoffset=0 → ring fully visible (full)
+    //   pct=0 → dashoffset=CIRC → ring fully hidden (empty)
+    setRing(n / totalSecs);
     $('statusText').textContent = `Sleep disabled — ${fmt(n)} left`;
   }
 });
