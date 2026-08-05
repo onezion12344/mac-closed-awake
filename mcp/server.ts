@@ -25,10 +25,21 @@ const TOOLS = [
 
 function helperSend(cmd: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const sock = new net.Socket();
-    sock.setTimeout(3000);
-    sock.connect(SOCKET, () => sock.write(cmd));
-    sock.on("data", (d) => { const m = d.toString().trim(); sock.destroy(); resolve(m); });
+    const sock = new net.Socket({ allowHalfOpen: true });
+    let buffer = "";
+    let settled = false;
+    sock.setTimeout(5000);
+    sock.connect(SOCKET, () => {
+      sock.write(cmd);
+      sock.end();
+    });
+    sock.on("data", (d) => { buffer += d.toString(); });
+    sock.on("end", () => {
+      if (settled) return;
+      settled = true;
+      sock.destroy();
+      resolve(buffer.trim());
+    });
     sock.on("error", () => { sock.destroy(); reject(new Error("Helper not running. Run `mca` app and install helper.")); });
     sock.on("timeout", () => { sock.destroy(); reject(new Error("Helper timeout")); });
   });
@@ -47,7 +58,7 @@ function exec(cmd: string, args: string[]): Promise<{ stdout: string; stderr: st
 async function mcaStart(secs: number): Promise<string> {
   await helperSend("DISABLE");
   if (secs > 0) {
-    spawn("sh", ["-c", `sleep ${secs} && ${process.argv[0]} -e "const net = require('net'); const s = new net.Socket(); s.connect('${SOCKET}', () => s.write('ENABLE')); s.on('data', () => s.destroy());"`], { detached: true, stdio: "ignore" }).unref();
+    spawn("sh", ["-c", `sleep ${secs} && ${process.argv[0]} -e "const net = require('net'); const s = new net.Socket({ allowHalfOpen: true }); s.connect('${SOCKET}', () => { s.write('ENABLE'); s.end(); }); s.on('data', () => s.destroy());"`], { detached: true, stdio: "ignore" }).unref();
     return secs >= 60
       ? `✅ Sleep disabled for ${Math.round(secs / 60)} min. Auto-restore in ${secs}s.`
       : `✅ Sleep disabled for ${secs}s.`;

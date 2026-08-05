@@ -1,0 +1,95 @@
+# ═══════════════════════════════════════════════════
+# .neuralmemory/surface.nm
+# Neural Memory Knowledge Surface v1
+# Auto-generated from brain.db | Editable by human
+# ═══════════════════════════════════════════════════
+---
+brain: default
+updated: 2026-08-05T02:16:21
+neurons: 1008
+synapses: 18225
+token_budget: 1200
+depth_available: [surface, detail, deep]
+---
+
+# ── GRAPH ──────────────────────────────────────────
+# Nodes = key concepts. Edges = causal/decisional links.
+# Agent: scan this section to understand the knowledge landscape.
+# Format: [id] content (type) {p:N} →edge→ [target_id_or_text]
+
+[c23] DeepSeek (concept) {p:5}
+  →co_occurs→ "CLI"
+  →co_occurs→ "MCP"
+  →co_occurs→ "Hermes CLI"
+  →co_occurs→ "Dead"
+  →co_occurs→ "TTY"
+
+[c1] TODO: hold (degree audit (concept) {p:6}
+  →is_a→ "7 memories about concept: todo, hold, degree, audit. Key:…"
+  →is_a→ "7 memories about concept: todo, hold, degree, audit. Key:…"
+  →is_a→ "7 memories about concept: todo, hold, degree, audit. Key:…"
+  →co_occurs→ "TODO: be pinned to the code-writing portions specifically"
+  →co_occurs→ "Error: 400 aierror: aierror: {"object":"error","message":"r…"
+
+[c2] TODO: hold (degree audit (concept) {p:6}
+  →is_a→ "7 memories about concept: todo, hold, degree, audit. Key:…"
+  →co_occurs→ "TODO: be pinned to the code-writing portions specifically"
+  →co_occurs→ "Error: 400 aierror: aierror: {"object":"error","message":"r…"
+
+[c3] Error: with "no such file or directory" for… (concept) {p:6}
+
+[c4] Error: with "no such file or directory" for… (concept) {p:6}
+  →co_occurs→ "Error: `skill-lint --watch` failed with "no such file or…"
+  →co_occurs→ "Error: `hku-agent` version unresolved in `skill-lint --tree`"
+  →co_occurs→ "Error: messages, or content you generated), read the full…"
+
+[c5] Error: two build agents right now; i'll log it as a pitfall + "fixed" entry… (concept) {p:6}
+  →related_to→ "two build"
+  →related_to→ "Mac sleep prevention: use the sleep-control MCP at…"
+  →co_occurs→ "Mac sleep prevention: use the sleep-control MCP at…"
+  →related_to→ "build agents"
+  →felt→ "relief"
+
+# ── CLUSTERS ───────────────────────────────────────
+# Auto-detected topic groups from brain.db entity co-occurrence.
+# Agent: use clusters to scope recall queries.
+
+@todo: [078443cd-fb4f-486b-a8ce-bc84127cc3fd, 1687dbd5-1f63-4791-ad2c-a80c62da6027] "TODO: hold (degree audit"
+@error: [09713d8f-c37f-4c42-8478-52fb9853915e, 0bd37c12-8fe1-4a4b-8498-b7e9947f4f99, 1046565c-0716-4e14-b1d9-023c08aac5d4] "Error: with "no such file or directory" "
+@chatlog: [13d1b69c-304b-4f5c-90c7-11ac76c18e99, 1b265796-1fc7-4dd1-943c-3adc64902447, 6204fd36-9e89-4136-ae22-4fba7d65492d, 93c5946b-35d9-40ed-916a-a5da2ff91d38] "Only, Once, 2. chatlog = NEVER run `killall chatlog`"
+@pre: [0158312e-3983-4f8f-aeba-540e91f9de9d, 06e63704-9b32-4bf2-a8b5-49b8303cb904, 0bbee4e9-6f58-4163-b8d4-d11e1c815fc8, 11569519-13be-493c-94a2-bec0a9233ffe, 1758878f-9b29-4742-9cb5-ee07a2332445] "Pre, Chatlog, Library/Containers/com.tencent.xinWeChat"
+@insight: [06b1925b-e9d3-433d-a407-4195fe3196bf, 1b31d773-33d8-4fe0-98cb-2aa106282a0d] "Insight: the gateway restarts"
+
+# ── SIGNALS ────────────────────────────────────────
+# Active alerts, unresolved items, pending decisions.
+# Agent: check this FIRST each session for urgent context.
+
+! Insight: swc-node's cross-file `
+! subagent dispatch is broken this session — every dispatch fails with `no such mo
+! TODO: rewrite the blog article route to read from Payload
+! TODO: route groups share root layout)
+! Error: inlining the blogposts collection into `payload
+! [degree audit, emergency_flush, hold, hold degree, pre_compact]
+! [degree audit, emergency_flush, hold, hold degree, pre_compact]
+! [degree audit, emergency_flush, hold, hold degree, pre_compact]
+! [any skill, emergency_flush, pre_compact, run, run any]
+! [counted toward, courses counted, emergency_flush, error, error courses]
+
+# ── DEPTH MAP ──────────────────────────────────────
+# When surface isn't enough, this tells agent WHERE to dig.
+# Format: [id] → depth_hint (context)
+
+[c1] → NEEDS_DETAIL (12 total synapses, recall "TODO: hold (degree audit")
+[c2] → NEEDS_DEEP (10 synapses in brain.db, recall "TODO: hold (degree audit")
+[c3] → NEEDS_DEEP (10 synapses in brain.db, recall "Error: with "no such file or…")
+[c4] → NEEDS_DEEP (10 synapses in brain.db, recall "Error: with "no such file or…")
+[c5] → NEEDS_DETAIL (13 total synapses, recall "Error: two build agents right now;…")
+[c23] → NEEDS_DETAIL (11 total synapses, recall "DeepSeek")
+
+# ── META ───────────────────────────────────────────
+# Stats for agent to gauge brain richness
+
+coverage: 0.03
+staleness: 0.2
+last_consolidation: 2026-08-05T02:16:21
+top_entities: [TODO:, Error:, Error:, Only, Once]
