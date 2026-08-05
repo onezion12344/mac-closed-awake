@@ -530,6 +530,9 @@
     <div class="lpm-desc">Cooler &amp; quieter lid-closed runs</div>
   </label>
 
+  <!-- Battery warning (shown when running on battery) -->
+  <div id="batteryWarn" style="display:none;width:100%;margin-bottom:16px;padding:10px 14px;border-radius:12px;background:rgba(232,147,90,0.10);border:1px solid rgba(232,147,90,0.30);font-size:11px;line-height:1.5;color:#e8935a"></div>
+
   <!-- Upgrade banner (shown when free user hits limit) -->
   <div class="upgrade-banner" id="upgradeBanner" onclick="openUpgrade()">
     <div class="upgrade-title">&#x2B50; Upgrade to Pro</div>
@@ -604,6 +607,23 @@ function setActive(seconds) {
     b.classList.toggle('selected', parseInt(b.dataset.secs) === seconds);
   });
   $('foreverBtn').classList.toggle('active', seconds === 0);
+}
+
+// Clamshell sessions need AC power: macOS ignores the PreventSystemSleep
+// assertion off the charger, and a lid-closed run flattens the battery fast.
+function showBatteryWarning(s) {
+  const el = $('batteryWarn');
+  if (!el || s.onAC === undefined) return;
+  if (s.onAC) {
+    el.style.display = 'none';
+    return;
+  }
+  const pct = typeof s.batteryPercent === 'number' ? s.batteryPercent : null;
+  const low = pct !== null && pct <= 20;
+  el.textContent = low
+    ? `⚠︎ On battery (${pct}%) — plug in the charger. Lid-closed runs drain fast and may sleep anyway.`
+    : `⚠︎ On battery${pct !== null ? ` (${pct}%)` : ''} — plug in for reliable lid-closed operation.`;
+  el.style.display = 'block';
 }
 
 async function toggleLowPower() {
@@ -745,6 +765,7 @@ window.mca.onProStatus((pro) => {
 window.mca.status().then(s => {
   lowPowerEnabled = s.lowPowerEnabled || false;
   $('lpmCheckbox').checked = lowPowerEnabled;
+  showBatteryWarning(s);
 
   if (s.helperInstalled === false) {
     $('installOverlay').classList.add('show');
@@ -771,6 +792,12 @@ window.mca.status().then(s => {
     if (!p) $('upgradeBanner').classList.add('show');
   });
 });
+
+// Re-poll the power source so the warning appears/clears when the charger
+// is plugged or unplugged mid-session.
+setInterval(() => {
+  window.mca.status().then(showBatteryWarning).catch(() => {});
+}, 30000);
 </script>
 </body>
 </html>

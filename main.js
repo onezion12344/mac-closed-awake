@@ -62,8 +62,13 @@ function startCaffeinate() {
   // Clean up any stale caffeinate from a previous crash
   killProcessByPidFile(CAFFEINE_PID_FILE)
 
-  // -i prevents idle system sleep. We removed -u so user-activity assertions don't fight Low Power Mode UI.
-  caffeineProcess = spawn('caffeinate', ['-i', '-t', '86400'], { detached: true })
+  // -s asserts PreventSystemSleep, which is what actually survives a lid close.
+  // -i alone only blocks *idle* sleep; closing the lid is an explicit sleep
+  // request, so -i does not keep the machine awake in clamshell mode.
+  // -m keeps the disk from idle-sleeping so long builds don't stall on I/O.
+  // Note: the kernel honours -s only on AC power (see caffeinate(1)); on battery
+  // the pmset disablesleep flag from the helper is what carries the session.
+  caffeineProcess = spawn('caffeinate', ['-s', '-i', '-m', '-t', '86400'], { detached: true })
 
   if (caffeineProcess.pid) {
     fs.writeFileSync(CAFFEINE_PID_FILE, String(caffeineProcess.pid))
@@ -534,6 +539,20 @@ ipcMain.handle('stop', async () => {
   }
 })
 
+// Read the current power source and battery percentage.
+// Clamshell sessions on battery drain fast and caffeinate -s is ignored off AC,
+// so the UI warns when a session starts without the charger.
+function getPowerSource() {
+  return new Promise((resolve) => {
+    exec('pmset -g batt', (err, stdout) => {
+      if (err) { resolve({ onAC: true, percent: null }); return }
+      const onAC = /AC Power/.test(stdout)
+      const m = stdout.match(/(\d+)%/)
+      resolve({ onAC, percent: m ? parseInt(m[1], 10) : null })
+    })
+  })
+}
+
 ipcMain.handle('status', async () => {
   try {
     const helperOk = await checkHelper()
@@ -543,6 +562,7 @@ ipcMain.handle('status', async () => {
     const result = await sendHelper('STATUS')
     const disabled = result.status === 1
     const lowPowerStatus = await getLowPowerStatus()
+    const power = await getPowerSource()
     const cfg = loadConfig()
     return {
       helperInstalled: true,
@@ -551,7 +571,9 @@ ipcMain.handle('status', async () => {
       elapsed: totalDuration - remaining,
       lowPowerMode: lowPowerStatus === 1,
       lowPowerEnabled: cfg.lowPowerModeEnabled === true,
-      isAwake: cfg.isAwake === true
+      isAwake: cfg.isAwake === true,
+      onAC: power.onAC,
+      batteryPercent: power.percent
     }
   } catch {
     return { helperInstalled: false, disabled: false, remaining: 0 }
