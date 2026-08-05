@@ -454,9 +454,8 @@ function stopPowerMonitor() {
 }
 
 function reapplyDisableSleep() {
-  // Re-enforce sleep disable via helper
+  // Legacy lid-event re-apply; kept for the power monitor. No-op-safe.
   sendHelper('DISABLE').catch(() => {})
-  logError('Re-applied disablesleep due to lid event')
 }
 
 function startTimer(secs) {
@@ -464,10 +463,12 @@ function startTimer(secs) {
   forever = false
 
   if (secs === 0) {
-    // Forever mode
+    // Forever mode — no per-second tick, but we still need a reconciliation
+    // loop so disablesleep gets re-asserted if macOS clears it.
     forever = true
     saveConfig({ ...loadConfig(), isAwake: true, remaining: -1, totalDuration: 0 })
     if (win && !win.isDestroyed()) win.webContents.send('tick', -1)
+    restoreTimer = setInterval(() => { reassertDisableSleep() }, 5000)
     return
   }
 
@@ -479,6 +480,11 @@ function startTimer(secs) {
     saveConfig({ ...loadConfig(), remaining })
     if (win && !win.isDestroyed()) win.webContents.send('tick', remaining)
     updateTrayMenu()
+    // Reconciliation: macOS can clear disablesleep after a Maintenance Sleep,
+    // Clamshell Sleep (on a near-flat battery), or Thermal Emergency Sleep,
+    // even when the flag was set. Re-assert it on every tick so the session
+    // stays armed for its full duration.
+    if (remaining % 5 === 0) reassertDisableSleep()
     if (remaining <= 0) {
       clearInterval(restoreTimer)
       sendHelper('ENABLE').catch(() => {})
@@ -486,6 +492,22 @@ function startTimer(secs) {
       if (win && !win.isDestroyed()) win.webContents.send('restored')
     }
   }, 1000)
+}
+
+// Verify disablesleep is still 1 during an active session; re-assert if not.
+async function reassertDisableSleep() {
+  if (!forever && remaining <= 0) return
+  try {
+    const result = await sendHelper('STATUS')
+    if (result.status !== 1) {
+      logError(`disablesleep was ${result.status} mid-session — re-asserting`)
+      await sendHelper('DISABLE')
+      // LPM preference should be re-applied too, since a wake can reset it.
+      if (getLowPowerPreference()) await applyLowPowerMode(true).catch(() => {})
+    }
+  } catch (e) {
+    logError('reassert status check failed:', e.message)
+  }
 }
 
 
