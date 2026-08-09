@@ -708,8 +708,8 @@ function fmtTime(s) {
 // ── Window ──
 function createWindow() {
   win = new BrowserWindow({
-    width: 400,
-    height: 720,
+    width: 420,
+    height: 820,
     resizable: false,
     maximizable: false,
     titleBarStyle: 'hiddenInset',
