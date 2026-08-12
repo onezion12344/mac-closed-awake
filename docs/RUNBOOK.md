@@ -307,3 +307,23 @@ Check `~/Library/Application\ Support/mac-closed-awake/config.json` for `"isPro"
 ---
 
 *Last updated: 2026-07-29. Written during Phase 6 delivery.*
+
+---
+
+## 部署状态 (2026-08-12)
+
+**Worker 已上线:** https://mca-license.onezion12344.workers.dev
+- `MCA_PRIVATE_KEY` ✅ 已设 (来自 `.env`)
+- `ADMIN_TOKEN` ✅ 已设 (keychain: `mca.admin.token`)
+- `STRIPE_SECRET_KEY` ⏳ 待设 — 需要 Stripe key
+
+**Admin 发 key (线上):**
+```bash
+ADMIN_TOKEN=$(security find-generic-password -s mca.admin.token -w)
+curl -X POST "https://mca-license.onezion12344.workers.dev/admin/mint" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"email":"朋友@邮箱.com","tier":"lifetime"}'
+```
+
+**已实测:** `/health` ✅, `/admin/mint` (无auth→401, 带auth→mint成功) ✅, `/verify-license` ✅
+minted key 本地 app 验证 + 线上验证均通过 ✅
