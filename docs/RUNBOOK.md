@@ -125,7 +125,30 @@ sudo launchctl unload /Library/LaunchDaemons/com.macclosed.awake.helper.plist
 
 **Status:** ⏸ Must swap to production URLs before launch (see ADR-004)
 
-**Redirect behavior:** All Buy buttons open Stripe Checkout in new browser tab. User completes payment → receives license email → copy activation code → paste into app.
+**Redirect behavior:** All Buy buttons open Stripe Checkout in new browser tab. User completes payment → lands on `/success?session_id=…` (CF Worker) → Worker confirms the session is `paid` via the Stripe API → mints an Ed25519-signed license key → user copies it into the app.
+
+---
+
+### License Worker (Cloudflare)
+
+Deploy: `bash scripts/deploy-worker.sh` (after one-time `wrangler login`).
+
+Secrets (set via `wrangler secret put`):
+- `MCA_PRIVATE_KEY` — Ed25519 PKCS8 private key (from `.env` / `scripts/generate-activation.js --init`)
+- `STRIPE_SECRET_KEY` — Stripe secret key (must match the Payment Link's mode: live key for live links)
+- `ADMIN_TOKEN` — random string; guards `POST /admin/mint`
+
+Endpoints:
+- `GET /health`
+- `GET /verify-license?key=MCA-…`
+- `POST /generate-license` `{ sessionId }` — verifies Stripe, mints key
+- `POST /admin/mint` `{ email, tier }` + `Authorization: Bearer $ADMIN_TOKEN` — owner-issued keys
+- `GET /success?session_id=…` — payment-success landing page
+
+Manual key for the owner (no deploy needed):
+```bash
+node scripts/generate-activation.js --email you@x.com --tier lifetime
+```
 
 ---
 

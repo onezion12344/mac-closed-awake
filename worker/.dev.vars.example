@@ -1,0 +1,6 @@
+# Copy to .dev.vars for `wrangler dev` (local testing).
+# Secrets for the deployed Worker are set via `wrangler secret put` — do NOT commit real values here.
+# Get your key pair:  node scripts/generate-activation.js --init
+MCA_PRIVATE_KEY=YOUR_ED25519_PKCS8_PRIVATE_KEY_PEM
+STRIPE_SECRET_KEY=YOUR_STRIPE_SECRET_KEY
+ADMIN_TOKEN=YOUR_LONG_RANDOM_ADMIN_TOKEN
