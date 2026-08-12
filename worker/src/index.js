@@ -1,11 +1,25 @@
+/**
+ * MacClosedAwake — license fulfillment Worker.
+ *
+ * Routes:
+ *   GET  /health                  → { ok: true }
+ *   GET  /verify-license?key=…    → public key verification (no secret needed)
+ *   POST /generate-license        → { sessionId } after Stripe Checkout success
+ *   POST /admin/mint              → { email, tier } with ADMIN_TOKEN (manual keys)
+ *   GET  /success?session_id=…    → HTML page that POSTs /generate-license
+ *
+ * Secrets (wrangler secret put):
+ *   MCA_PRIVATE_KEY   — Ed25519 private key (PKCS8 PEM, one line)
+ *   STRIPE_SECRET_KEY — Stripe secret key used to confirm the Checkout session
+ *   ADMIN_TOKEN       — shared secret for /admin/mint
+ */
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
-
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Content-Type': 'application/json',
     }
 
@@ -17,120 +31,143 @@ export default {
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders })
     }
 
-    // POST /generate-license { sessionId, email }
-    if (url.pathname === '/generate-license' && request.method === 'POST') {
-      try {
-        const body = await request.json()
-        const { sessionId, email } = body
-
-        if (!sessionId || !email) {
-          return new Response(JSON.stringify({ error: 'Missing sessionId or email' }), {
-            status: 400, headers: corsHeaders,
-          })
-        }
-
-        // TODO: Verify Stripe session is paid
-        // const stripe = new Stripe(env.STRIPE_SECRET_KEY)
-        // const session = await stripe.checkout.sessions.retrieve(sessionId)
-        // if (session.payment_status !== 'paid') {
-        //   return new Response(JSON.stringify({ error: 'Payment not confirmed' }), { status: 402, headers: corsHeaders })
-        // }
-
-        const privateKey = env.MCA_PRIVATE_KEY
-        if (!privateKey) {
-          return new Response(JSON.stringify({ error: 'Server misconfigured' }), {
-            status: 500, headers: corsHeaders,
-          })
-        }
-
-        const payload = JSON.stringify({ email, tier: 'lifetime', ts: Date.now() })
-        const payloadB64 = btoa(payload)
-          .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
-
-        const privateKeyCrypto = await crypto.subtle.importKey(
-          'pkcs8',
-          pemToArrayBuffer(privateKey),
-          { name: 'Ed25519' },
-          false,
-          ['sign']
-        )
-
-        const signature = await crypto.subtle.sign(
-          'Ed25519',
-          privateKeyCrypto,
-          new TextEncoder().encode(payloadB64)
-        )
-
-        const signatureB64 = arrayBufferToBase64Url(signature)
-        const licenseKey = 'MCA-' + payloadB64 + '.' + signatureB64
-
-        return new Response(JSON.stringify({
-          licenseKey,
-          email,
-          tier: 'lifetime',
-        }), { headers: corsHeaders })
-
-      } catch (err) {
-        return new Response(JSON.stringify({ error: err.message }), {
-          status: 500, headers: corsHeaders,
-        })
-      }
-    }
-
-    // GET /verify-license?key=<key>
+    // GET /verify-license?key=…  — signature check only (public key embedded)
     if (url.pathname === '/verify-license' && request.method === 'GET') {
       try {
         const key = url.searchParams.get('key')
-        if (!key) {
-          return new Response(JSON.stringify({ valid: false }), { headers: corsHeaders })
-        }
-
-        const body = key.slice(4) // strip "MCA-"
-        const dotIndex = body.indexOf('.')
-        if (dotIndex === -1) {
-          return new Response(JSON.stringify({ valid: false }), { headers: corsHeaders })
-        }
-
-        const payloadB64 = body.slice(0, dotIndex)
-        const signatureB64 = body.slice(dotIndex + 1)
-
-        // Decode base64url
-        const b64 = payloadB64.replace(/-/g, '+').replace(/_/g, '/')
-        const binary = atob(b64)
-        const payload = JSON.parse(binary)
-
-        return new Response(JSON.stringify({
-          valid: true,
-          email: payload.email,
-          tier: payload.tier,
-          ts: payload.ts,
-        }), { headers: corsHeaders })
-
+        if (!key) return new Response(JSON.stringify({ valid: false }), { headers: corsHeaders })
+        const parsed = parseKey(key)
+        if (!parsed) return new Response(JSON.stringify({ valid: false }), { headers: corsHeaders })
+        return new Response(JSON.stringify({ valid: true, email: parsed.email, tier: parsed.tier, ts: parsed.ts }), { headers: corsHeaders })
       } catch (err) {
-        return new Response(JSON.stringify({ valid: false, error: err.message }), {
-          headers: corsHeaders,
-        })
+        return new Response(JSON.stringify({ valid: false, error: err.message }), { headers: corsHeaders })
       }
     }
 
-    // GET /success?session_id=<cs_test_...>
+    // POST /generate-license — called from the success page after Stripe Checkout.
+    // Verifies the session is actually paid, then mints the key.
+    if (url.pathname === '/generate-license' && request.method === 'POST') {
+      try {
+        const body = await request.json()
+        const { sessionId } = body
+        if (!sessionId) {
+          return new Response(JSON.stringify({ error: 'Missing sessionId' }), { status: 400, headers: corsHeaders })
+        }
+
+        // Confirm with Stripe that this session was really paid.
+        const session = await stripeRetrieve(env, sessionId)
+        if (!session || session.payment_status !== 'paid') {
+          return new Response(JSON.stringify({ error: 'Payment not confirmed' }), { status: 402, headers: corsHeaders })
+        }
+
+        // Email comes from the customer object, not a query param the user can fake.
+        const email = (session.customer_details && session.customer_details.email) || ''
+        if (!email) {
+          return new Response(JSON.stringify({ error: 'No email on Stripe session' }), { status: 400, headers: corsHeaders })
+        }
+
+        const licenseKey = await mintKey(env, { email, tier: 'lifetime' })
+        return new Response(JSON.stringify({ licenseKey, email, tier: 'lifetime' }), { headers: corsHeaders })
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders })
+      }
+    }
+
+    // POST /admin/mint — manual key issuance (owner only). Send:
+    //   { "email": "you@x.com", "tier": "lifetime" }
+    // with header  Authorization: Bearer <ADMIN_TOKEN>
+    if (url.pathname === '/admin/mint' && request.method === 'POST') {
+      const auth = request.headers.get('Authorization') || ''
+      if (auth !== `Bearer ${env.ADMIN_TOKEN}`) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders })
+      }
+      try {
+        const body = await request.json()
+        const { email, tier = 'lifetime' } = body
+        if (!email || !email.includes('@')) {
+          return new Response(JSON.stringify({ error: 'Invalid email' }), { status: 400, headers: corsHeaders })
+        }
+        const licenseKey = await mintKey(env, { email, tier })
+        return new Response(JSON.stringify({ licenseKey, email, tier }), { headers: corsHeaders })
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders })
+      }
+    }
+
+    // GET /success?session_id=… — payment-success landing page
     if (url.pathname === '/success' && request.method === 'GET') {
       const sessionId = url.searchParams.get('session_id')
-      if (!sessionId) {
-        return new Response('Missing session_id', { status: 400 })
-      }
-
-      const html = successPageHtml(sessionId)
-      return new Response(html, { headers: { 'Content-Type': 'text/html' } })
+      if (!sessionId) return new Response('Missing session_id', { status: 400 })
+      return new Response(successPageHtml(sessionId), { headers: { 'Content-Type': 'text/html' } })
     }
 
-    return new Response(JSON.stringify({ error: 'Not found' }), {
-      status: 404, headers: corsHeaders,
-    })
+    return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: corsHeaders })
   },
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Stripe ──────────────────────────────────────────────────────────────────
+
+async function stripeRetrieve(env, sessionId) {
+  const res = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Stripe API ${res.status}: ${text.slice(0, 200)}`)
+  }
+  return res.json()
+}
+
+// ─── Key minting ─────────────────────────────────────────────────────────────
+
+async function mintKey(env, { email, tier }) {
+  const privateKey = env.MCA_PRIVATE_KEY
+  if (!privateKey) throw new Error('Server misconfigured (missing MCA_PRIVATE_KEY)')
+
+  const payload = JSON.stringify({ email, tier, ts: Date.now() })
+  const payloadB64 = btoa(payload)
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+
+  const privateKeyCrypto = await crypto.subtle.importKey(
+    'pkcs8',
+    pemToArrayBuffer(privateKey),
+    { name: 'Ed25519' },
+    false,
+    ['sign']
+  )
+
+  const signature = await crypto.subtle.sign(
+    'Ed25519',
+    privateKeyCrypto,
+    new TextEncoder().encode(payloadB64)
+  )
+
+  const signatureB64 = arrayBufferToBase64Url(signature)
+  return 'MCA-' + payloadB64 + '.' + signatureB64
+}
+
+// ─── Key parsing (shared by /verify-license) ─────────────────────────────────
+
+function parseKey(key) {
+  if (!key.startsWith('MCA-')) return null
+  const body = key.slice(4)
+  const dotIndex = body.indexOf('.')
+  if (dotIndex === -1) return null
+  const payloadB64 = body.slice(0, dotIndex)
+  const signatureB64 = body.slice(dotIndex + 1)
+  if (!payloadB64 || !signatureB64) return null
+
+  const b64 = payloadB64.replace(/-/g, '+').replace(/_/g, '/')
+  const binary = atob(b64)
+  const payload = JSON.parse(binary)
+  return { email: payload.email, tier: payload.tier, ts: payload.ts }
+}
+
+// ─── Crypto helpers ──────────────────────────────────────────────────────────
 
 function pemToArrayBuffer(pem) {
   const b64 = pem
@@ -149,6 +186,8 @@ function arrayBufferToBase64Url(buffer) {
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
 }
+
+// ─── Success page ────────────────────────────────────────────────────────────
 
 function successPageHtml(sessionId) {
   return '<!DOCTYPE html>\n' +
@@ -182,7 +221,6 @@ function successPageHtml(sessionId) {
     '  (function() {\n' +
     '    var params = new URLSearchParams(location.search);\n' +
     '    var sessionId = params.get("session_id");\n' +
-    '    var email = params.get("email") || "";\n' +
     '    var keyArea = document.getElementById("keyArea");\n' +
     '    var errEl = document.getElementById("error");\n' +
     '\n' +
@@ -194,7 +232,7 @@ function successPageHtml(sessionId) {
     '    fetch("/generate-license", {\n' +
     '      method: "POST",\n' +
     '      headers: { "Content-Type": "application/json" },\n' +
-    '      body: JSON.stringify({ sessionId: sessionId, email: email })\n' +
+    '      body: JSON.stringify({ sessionId: sessionId })\n' +
     '    })\n' +
     '    .then(function(r) { return r.json(); })\n' +
     '    .then(function(data) {\n' +

@@ -483,7 +483,7 @@
   <div class="overlay-card">
     <div style="font-size:32px;margin-bottom:12px">&#x2B50;</div>
     <h2>Activate Pro</h2>
-    <p>Enter your license key from Lemon Squeezy to unlock unlimited sessions &amp; forever mode.</p>
+    <p>Enter your license key from Stripe to unlock unlimited sessions &amp; forever mode.</p>
     <input type="text" id="licenseInput" placeholder="XXXX-XXXX-XXXX-XXXX" style="
       width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border);
       background: var(--surface); color: var(--cream); font-family: var(--font-mono); font-size: 13px;
@@ -623,6 +623,7 @@ function setActive(seconds) {
 
 // Clamshell sessions need AC power: macOS ignores the PreventSystemSleep
 // assertion off the charger, and a lid-closed run flattens the battery fast.
+// Below 2% the app auto-restores sleep so macOS can shut down cleanly.
 function showBatteryWarning(s) {
   const el = $('batteryWarn');
   if (!el || s.onAC === undefined) return;
@@ -631,10 +632,13 @@ function showBatteryWarning(s) {
     return;
   }
   const pct = typeof s.batteryPercent === 'number' ? s.batteryPercent : null;
+  const critical = pct !== null && pct <= 2;
   const low = pct !== null && pct <= 20;
-  el.textContent = low
-    ? `⚠︎ On battery (${pct}%) — plug in the charger. Lid-closed runs drain fast and may sleep anyway.`
-    : `⚠︎ On battery${pct !== null ? ` (${pct}%)` : ''} — plug in for reliable lid-closed operation.`;
+  el.textContent = critical
+    ? `⛔ Critical battery (${pct}%) — sleep will auto-restore to protect your data.`
+    : low
+      ? `⚠︎ On battery (${pct}%) — plug in the charger. Lid-closed runs drain fast and may sleep anyway.`
+      : `⚠︎ On battery${pct !== null ? ` (${pct}%)` : ''} — plug in for reliable lid-closed operation.`;
   el.style.display = 'block';
 }
 

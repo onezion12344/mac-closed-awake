@@ -2,3 +2,6 @@ node_modules/
 dist/
 .DS_Store
 landing/remotion/out/
+.env
+*.env
+!worker/.dev.vars.example

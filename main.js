@@ -468,7 +468,10 @@ function startTimer(secs) {
     forever = true
     saveConfig({ ...loadConfig(), isAwake: true, remaining: -1, totalDuration: 0 })
     if (win && !win.isDestroyed()) win.webContents.send('tick', -1)
-    restoreTimer = setInterval(() => { reassertDisableSleep() }, 5000)
+    restoreTimer = setInterval(() => {
+      reassertDisableSleep()
+      checkCriticalBattery()
+    }, 5000)
     return
   }
 
@@ -485,8 +488,12 @@ function startTimer(secs) {
     // even when the flag was set. Re-assert it on every tick so the session
     // stays armed for its full duration.
     if (remaining % 5 === 0) reassertDisableSleep()
+    // Data-safety: if the battery hits ≤2% mid-session, stop keeping awake so
+    // macOS can hibernate/shutdown cleanly instead of force-killing the system.
+    if (remaining % 5 === 0) checkCriticalBattery()
     if (remaining <= 0) {
       clearInterval(restoreTimer)
+      restoreTimer = null
       sendHelper('ENABLE').catch(() => {})
       saveConfig({ ...loadConfig(), isAwake: false, remaining: 0 })
       if (win && !win.isDestroyed()) win.webContents.send('restored')
@@ -538,7 +545,14 @@ ipcMain.handle('start', async (_, secs) => {
 })
 
 ipcMain.handle('stop', async () => {
+  return restoreSleep('user stop')
+})
+
+// Restore normal sleep and stop all keep-awake machinery.
+// Used by the Stop button, auto-expiry, and critical-battery safety.
+async function restoreSleep(trigger) {
   clearInterval(restoreTimer)
+  restoreTimer = null
   forever = false
 
   // Stop all monitoring processes
@@ -551,15 +565,39 @@ ipcMain.handle('stop', async () => {
     await applyLowPowerMode(false).catch(() => {})
   }
 
+  let err = null
   try {
     await sendHelper('ENABLE')
-    remaining = 0
-    saveConfig({ ...loadConfig(), isAwake: false })
-    return { ok: true }
   } catch (e) {
-    return { ok: false, error: e.message }
+    err = e
+    logError('restoreSleep ENABLE failed:', e.message)
   }
-})
+
+  remaining = 0
+  totalDuration = 0
+  saveConfig({ ...loadConfig(), isAwake: false })
+  if (win && !win.isDestroyed()) win.webContents.send('restored')
+  updateTrayMenu()
+  logError(`Sleep restored (${trigger})`)
+  return err ? { ok: false, error: err.message } : { ok: true }
+}
+
+// Auto-restore when battery is critically low (≤2%) so macOS can shut down
+// cleanly and save state instead of force-powering off mid-write.
+async function checkCriticalBattery() {
+  if (!forever && remaining <= 0) return
+  let power
+  try {
+    power = await getPowerSource()
+  } catch (e) {
+    logError('battery check failed:', e.message)
+    return
+  }
+  if (!power.onAC && power.percent !== null && power.percent <= 2) {
+    logError(`Battery critical (${power.percent}%) — restoring sleep to protect data`)
+    await restoreSleep('critical battery')
+  }
+}
 
 // Read the current power source and battery percentage.
 // Clamshell sessions on battery drain fast and caffeinate -s is ignored off AC,
