@@ -594,7 +594,10 @@ async function checkCriticalBattery() {
     return
   }
   if (!power.onAC && power.percent !== null && power.percent <= 2) {
-    logError(`Battery critical (${power.percent}%) — restoring sleep to protect data`)
+    // Re-enable sleep so the Mac can sleep on its own: if the lid is closed,
+    // macOS sleeps immediately and hibernates (RAM → disk) while there's still
+    // charge; if the lid is open, we don't force sleep.
+    logError(`Battery critical (${power.percent}%) — restoring sleep to preserve session`)
     await restoreSleep('critical battery')
   }
 }
