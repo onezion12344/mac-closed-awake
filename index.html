@@ -370,6 +370,12 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
+  /* Forever-mode PRO tag (inline, not absolutely positioned) */
+  .pro-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    opacity: 0.5;
+  }
 
   /* Footer */
   .footer {
@@ -564,28 +570,28 @@
     </button>
     <button class="preset" data-secs="14400" onclick="start(14400)">
       <span class="preset-time">4h</span>
-      <span class="pro-badge">PRO</span>
+      <span class="pro-badge" data-pro-lock>PRO</span>
     </button>
     <button class="preset" data-secs="28800" onclick="start(28800)">
       <span class="preset-time">8h</span>
-      <span class="pro-badge">PRO</span>
+      <span class="pro-badge" data-pro-lock>PRO</span>
     </button>
     <button class="preset" data-secs="43200" onclick="start(43200)">
       <span class="preset-time">12h</span>
-      <span class="pro-badge">PRO</span>
+      <span class="pro-badge" data-pro-lock>PRO</span>
     </button>
   </div>
 
   <!-- Forever -->
   <button class="forever-btn" id="foreverBtn" onclick="start(0)">
-    &#x221E; &nbsp;FOREVER MODE &nbsp;<span style="font-size:10px;opacity:0.5">PRO</span>
+    &#x221E; &nbsp;FOREVER MODE &nbsp;<span class="pro-tag" data-pro-lock>PRO</span>
   </button>
 
   <!-- Stop -->
   <button class="stop-btn" onclick="stop()">Restore Sleep</button>
 
   <div class="footer">
-    MacClosedAwake v1.0 &mdash; <a href="#" onclick="openUpgrade()">Upgrade</a>
+    <span id="appVersion">MacClosedAwake</span> &mdash; <a href="#" onclick="openUpgrade()">Upgrade</a>
   </div>
 </div>
 
@@ -720,7 +726,7 @@ async function activateLicense() {
   if (r.ok) {
     $('licenseOverlay').classList.remove('show');
     $('upgradeBanner').classList.remove('show');
-    document.querySelectorAll('.pro-badge').forEach(b => b.style.display = 'none');
+    document.querySelectorAll('[data-pro-lock]').forEach(b => b.style.display = 'none');
     isPro = true;
   } else {
     $('licenseError').textContent = r.error || 'Invalid key';
@@ -773,7 +779,9 @@ window.mca.onProStatus((pro) => {
   isPro = pro;
   if (pro) {
     $('upgradeBanner').classList.remove('show');
-    document.querySelectorAll('.pro-badge').forEach(b => b.style.display = 'none');
+    document.querySelectorAll('[data-pro-lock]').forEach(b => b.style.display = 'none');
+  } else {
+    $('upgradeBanner').classList.add('show');
   }
 });
 
@@ -805,8 +813,18 @@ window.mca.status().then(s => {
   }
   window.mca.isPro().then(p => {
     isPro = p;
-    if (!p) $('upgradeBanner').classList.add('show');
+    if (p) {
+      document.querySelectorAll('[data-pro-lock]').forEach(b => b.style.display = 'none');
+    } else {
+      $('upgradeBanner').classList.add('show');
+    }
   });
+
+  // Show the real app version (from package.json via main process) instead
+  // of the stale hardcoded v1.0.
+  window.mca.version().then(v => {
+    if (v) $('appVersion').textContent = `MacClosedAwake v${v}`;
+  }).catch(() => {});
 });
 
 // Re-poll the power source so the warning appears/clears when the charger

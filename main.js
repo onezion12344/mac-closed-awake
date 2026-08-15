@@ -657,6 +657,10 @@ ipcMain.handle('is-pro', () => {
   return cfg.isPro === true
 })
 
+ipcMain.handle('version', () => {
+  return app.getVersion() || '1.0.0'
+})
+
 ipcMain.handle('upgrade', () => {
   shell.openExternal(STRIPE_LIFETIME_URL)
 })

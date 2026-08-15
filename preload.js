@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('mca', {
   status: () => ipcRenderer.invoke('status'),
   installHelper: () => ipcRenderer.invoke('install-helper'),
   isPro: () => ipcRenderer.invoke('is-pro'),
+  version: () => ipcRenderer.invoke('version'),
   upgrade: () => ipcRenderer.invoke('upgrade'),
   activateLicense: (key) => ipcRenderer.invoke('activate-license', key),
   getLowPowerPreference: () => ipcRenderer.invoke('get-low-power-preference'),
