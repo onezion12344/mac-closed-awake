@@ -44,3 +44,25 @@ npm run build    # → dist/Sleep Control-1.0.0.dmg
 ```
 
 GitHub Actions auto-builds on `v*` tags.
+
+## Versioning & Releases
+
+**Every user-visible fix/feature bumps the version.** Users see "an update" whenever an issue is fixed, so there must be a new release each time.
+
+- Patch version (`x.y.<z>`): a bug fix → e.g. `1.2.0` → `1.2.1`
+- Minor (`x.<y>.0`): new feature/behavior → e.g. `1.1.0` → `1.2.0`
+- Files to bump together: `package.json` `"version"` (Electron reads this via `app.getVersion()` — the footer version display is dynamic now)
+- Release flow:
+  ```bash
+  npm version <major|minor|patch>   # bumps package.json + tags vX.Y.Z + commits
+  git push origin master --tags     # CI builds & uploads release assets
+  ```
+  Or manually: edit `package.json` version → commit → `git tag vX.Y.Z` → `git push origin master --tags`
+- CI (`.github/workflows/build.yml`) auto-builds the .dmg/.zip and creates a GitHub Release on every `v*` tag. After pushing the tag, verify `gh run list` succeeded and the release exists.
+- The locally installed app at `/Applications` is separate — after a version bump, rebuild + reinstall locally to stay in sync (`npm run dist` → mount DMG → `ditto` to `/Applications`).
+
+**Release checklist when finishing a fix:**
+1. Bump version (patch for fixes)
+2. Commit the fix + version bump
+3. Tag `vX.Y.Z` and push tag (triggers CI release)
+4. Rebuild + reinstall locally so the running copy matches
