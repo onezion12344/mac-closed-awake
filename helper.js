@@ -60,6 +60,9 @@ async function handle(cmd) {
     }
     case 'LID_CLOSE':
       return 'OK'
+    case 'SLEEPNOW':
+      await pmset('sleepnow')
+      return 'OK'
     default:
       return 'ERR'
   }

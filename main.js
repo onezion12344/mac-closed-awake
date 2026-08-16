@@ -33,7 +33,7 @@ const HELPER_VERSION_FILE = path.join(HELPER_DIR, 'helper.version')
 const STORE_PATH = path.join(app.getPath('userData'), 'config.json')
 const CAFFEINE_PID_FILE = '/tmp/mca.caffeinate.pid'
 const LOWPOWER_PID_FILE = '/tmp/mca.lowpower.pid'
-const HELPER_VERSION = '2.0.0'
+const HELPER_VERSION = '2.1.0'
 
 // ── Config store ──
 function loadConfig() {
@@ -601,6 +601,18 @@ async function checkCriticalBattery() {
     // charge; if the lid is open, we don't force sleep.
     logError(`Battery critical (${power.percent}%) — restoring sleep to preserve session`)
     await restoreSleep('critical battery')
+
+    // Optional: force immediate sleep even with the lid open, so the session is
+    // preserved before the battery dies. Off by default — restoring sleep already
+    // covers the lid-closed case.
+    if (loadConfig().forceSleep === true) {
+      logError('forceSleep enabled — forcing immediate sleep')
+      try {
+        await sendHelper('SLEEPNOW')
+      } catch (e) {
+        logError('force sleep failed:', e.message)
+      }
+    }
   }
 }
 
@@ -637,6 +649,7 @@ ipcMain.handle('status', async () => {
       lowPowerMode: lowPowerStatus === 1,
       lowPowerEnabled: cfg.lowPowerModeEnabled === true,
       batteryProtect: cfg.batteryProtect !== false, // default on
+      forceSleep: cfg.forceSleep === true, // default off
       isAwake: cfg.isAwake === true,
       onAC: power.onAC,
       batteryPercent: power.percent
@@ -691,6 +704,17 @@ ipcMain.handle('set-battery-protect', async (_, enabled) => {
     cfg.batteryProtect = enabled === true
     saveConfig(cfg)
     return { ok: true, enabled: cfg.batteryProtect }
+  } catch (e) {
+    return { ok: false, error: e.message }
+  }
+})
+
+ipcMain.handle('set-force-sleep', async (_, enabled) => {
+  try {
+    const cfg = loadConfig()
+    cfg.forceSleep = enabled === true
+    saveConfig(cfg)
+    return { ok: true, enabled: cfg.forceSleep }
   } catch (e) {
     return { ok: false, error: e.message }
   }

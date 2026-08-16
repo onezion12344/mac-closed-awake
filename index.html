@@ -558,6 +558,16 @@
     <div class="lpm-desc">Auto-restore sleep to prevent data loss</div>
   </label>
 
+  <!-- Force sleep toggle -->
+  <label class="lpm-row" id="forceSleepRow" onclick="toggleForceSleep()">
+    <input type="checkbox" id="forceSleepCheckbox">
+    <div class="lpm-toggle"></div>
+    <div>
+      <div class="lpm-label">Force sleep at ≤2%</div>
+    </div>
+    <div class="lpm-desc">Sleep immediately, even with the lid open</div>
+  </label>
+
   <!-- Battery warning (shown when running on battery) -->
   <div id="batteryWarn" style="display:none;width:100%;margin-bottom:16px;padding:10px 14px;border-radius:12px;background:rgba(232,147,90,0.10);border:1px solid rgba(232,147,90,0.30);font-size:11px;line-height:1.5;color:#e8935a"></div>
 
@@ -613,6 +623,7 @@ let totalSecs = 0;
 let forever = false;
 let lowPowerEnabled = false;
 let batteryProtectEnabled = true;
+let forceSleepEnabled = false;
 
 // Ring math
 const CIRC = 2 * Math.PI * 80; // ~502
@@ -680,6 +691,18 @@ async function toggleBatteryProtect() {
     checkbox.checked = r.enabled
   } else {
     checkbox.checked = batteryProtectEnabled
+  }
+}
+
+async function toggleForceSleep() {
+  const checkbox = $('forceSleepCheckbox')
+  const want = !checkbox.checked
+  const r = await window.mca.setForceSleep(want)
+  if (r.ok) {
+    forceSleepEnabled = r.enabled
+    checkbox.checked = r.enabled
+  } else {
+    checkbox.checked = forceSleepEnabled
   }
 }
 
@@ -814,6 +837,8 @@ window.mca.status().then(s => {
   $('lpmCheckbox').checked = lowPowerEnabled;
   batteryProtectEnabled = s.batteryProtect !== false; // default true (on)
   $('batteryProtectCheckbox').checked = batteryProtectEnabled;
+  forceSleepEnabled = s.forceSleep === true; // default off
+  $('forceSleepCheckbox').checked = forceSleepEnabled;
   showBatteryWarning(s);
 
   if (s.helperInstalled === false) {
