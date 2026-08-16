@@ -586,6 +586,8 @@ async function restoreSleep(trigger) {
 // cleanly and save state instead of force-powering off mid-write.
 async function checkCriticalBattery() {
   if (!forever && remaining <= 0) return
+  // Respect the user's toggle: default on, but they can disable auto-restore.
+  if (loadConfig().batteryProtect === false) return
   let power
   try {
     power = await getPowerSource()
@@ -634,6 +636,7 @@ ipcMain.handle('status', async () => {
       elapsed: totalDuration - remaining,
       lowPowerMode: lowPowerStatus === 1,
       lowPowerEnabled: cfg.lowPowerModeEnabled === true,
+      batteryProtect: cfg.batteryProtect !== false, // default on
       isAwake: cfg.isAwake === true,
       onAC: power.onAC,
       batteryPercent: power.percent
@@ -677,6 +680,17 @@ ipcMain.handle('set-low-power-preference', async (_, enabled) => {
       await applyLowPowerMode(enabled)
     }
     return { ok: true, enabled }
+  } catch (e) {
+    return { ok: false, error: e.message }
+  }
+})
+
+ipcMain.handle('set-battery-protect', async (_, enabled) => {
+  try {
+    const cfg = loadConfig()
+    cfg.batteryProtect = enabled === true
+    saveConfig(cfg)
+    return { ok: true, enabled: cfg.batteryProtect }
   } catch (e) {
     return { ok: false, error: e.message }
   }

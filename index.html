@@ -548,6 +548,16 @@
     <div class="lpm-desc">Cooler &amp; quieter lid-closed runs</div>
   </label>
 
+  <!-- Battery protection toggle -->
+  <label class="lpm-row" id="batteryProtectRow" onclick="toggleBatteryProtect()">
+    <input type="checkbox" id="batteryProtectCheckbox">
+    <div class="lpm-toggle"></div>
+    <div>
+      <div class="lpm-label">Battery protection (≤2%)</div>
+    </div>
+    <div class="lpm-desc">Auto-restore sleep to prevent data loss</div>
+  </label>
+
   <!-- Battery warning (shown when running on battery) -->
   <div id="batteryWarn" style="display:none;width:100%;margin-bottom:16px;padding:10px 14px;border-radius:12px;background:rgba(232,147,90,0.10);border:1px solid rgba(232,147,90,0.30);font-size:11px;line-height:1.5;color:#e8935a"></div>
 
@@ -602,6 +612,7 @@ let isPro = false;
 let totalSecs = 0;
 let forever = false;
 let lowPowerEnabled = false;
+let batteryProtectEnabled = true;
 
 // Ring math
 const CIRC = 2 * Math.PI * 80; // ~502
@@ -657,6 +668,18 @@ async function toggleLowPower() {
     checkbox.checked = r.enabled
   } else {
     checkbox.checked = lowPowerEnabled
+  }
+}
+
+async function toggleBatteryProtect() {
+  const checkbox = $('batteryProtectCheckbox')
+  const want = !checkbox.checked
+  const r = await window.mca.setBatteryProtect(want)
+  if (r.ok) {
+    batteryProtectEnabled = r.enabled
+    checkbox.checked = r.enabled
+  } else {
+    checkbox.checked = batteryProtectEnabled
   }
 }
 
@@ -789,6 +812,8 @@ window.mca.onProStatus((pro) => {
 window.mca.status().then(s => {
   lowPowerEnabled = s.lowPowerEnabled || false;
   $('lpmCheckbox').checked = lowPowerEnabled;
+  batteryProtectEnabled = s.batteryProtect !== false; // default true (on)
+  $('batteryProtectCheckbox').checked = batteryProtectEnabled;
   showBatteryWarning(s);
 
   if (s.helperInstalled === false) {

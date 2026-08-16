@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('mca', {
   activateLicense: (key) => ipcRenderer.invoke('activate-license', key),
   getLowPowerPreference: () => ipcRenderer.invoke('get-low-power-preference'),
   setLowPowerPreference: (enabled) => ipcRenderer.invoke('set-low-power-preference', enabled),
+  setBatteryProtect: (enabled) => ipcRenderer.invoke('set-battery-protect', enabled),
   onTick: (fn) => ipcRenderer.on('tick', (_, n) => fn(n)),
   onRestored: (fn) => ipcRenderer.on('restored', () => fn()),
   onHelperNeeded: (fn) => ipcRenderer.on('helper-needed', () => fn()),
