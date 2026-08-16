@@ -539,7 +539,7 @@
   </div>
 
   <!-- Low Power Mode toggle -->
-  <label class="lpm-row" id="lpmRow" onclick="toggleLowPower()">
+  <label class="lpm-row" id="lpmRow" onclick="toggleLowPower(event)">
     <input type="checkbox" id="lpmCheckbox">
     <div class="lpm-toggle"></div>
     <div>
@@ -549,7 +549,7 @@
   </label>
 
   <!-- Battery protection toggle -->
-  <label class="lpm-row" id="batteryProtectRow" onclick="toggleBatteryProtect()">
+  <label class="lpm-row" id="batteryProtectRow" onclick="toggleBatteryProtect(event)">
     <input type="checkbox" id="batteryProtectCheckbox">
     <div class="lpm-toggle"></div>
     <div>
@@ -559,7 +559,7 @@
   </label>
 
   <!-- Force sleep toggle -->
-  <label class="lpm-row" id="forceSleepRow" onclick="toggleForceSleep()">
+  <label class="lpm-row" id="forceSleepRow" onclick="toggleForceSleep(event)">
     <input type="checkbox" id="forceSleepCheckbox">
     <div class="lpm-toggle"></div>
     <div>
@@ -670,7 +670,8 @@ function showBatteryWarning(s) {
   el.style.display = 'block';
 }
 
-async function toggleLowPower() {
+async function toggleLowPower(e) {
+  if (e) e.preventDefault()
   const checkbox = $('lpmCheckbox')
   const want = !checkbox.checked
   const r = await window.mca.setLowPowerPreference(want)
@@ -682,7 +683,8 @@ async function toggleLowPower() {
   }
 }
 
-async function toggleBatteryProtect() {
+async function toggleBatteryProtect(e) {
+  if (e) e.preventDefault()
   const checkbox = $('batteryProtectCheckbox')
   const want = !checkbox.checked
   const r = await window.mca.setBatteryProtect(want)
@@ -694,7 +696,8 @@ async function toggleBatteryProtect() {
   }
 }
 
-async function toggleForceSleep() {
+async function toggleForceSleep(e) {
+  if (e) e.preventDefault()
   const checkbox = $('forceSleepCheckbox')
   const want = !checkbox.checked
   const r = await window.mca.setForceSleep(want)
