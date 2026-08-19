@@ -506,6 +506,12 @@ async function reassertDisableSleep() {
   if (!forever && remaining <= 0) return
   try {
     const result = await sendHelper('STATUS')
+    // The session may have ended while we awaited STATUS — e.g. the battery hit
+    // ≤2% on this same tick and checkCriticalBattery() → restoreSleep() re-enabled
+    // sleep (and cleared the timer). Without this re-check we'd misread status 0
+    // as "macOS cleared disablesleep" and re-DISABLE, undoing the critical-battery
+    // restore — which made both "restore sleep at ≤2%" and force-sleep fail.
+    if (restoreTimer === null) return
     if (result.status !== 1) {
       logError(`disablesleep was ${result.status} mid-session — re-asserting`)
       await sendHelper('DISABLE')
