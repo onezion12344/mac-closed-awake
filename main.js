@@ -792,9 +792,10 @@ function fmtTime(s) {
 function createWindow() {
   win = new BrowserWindow({
     width: 420,
-    height: 820,
+    height: 920,
     resizable: false,
     maximizable: false,
+    minHeight: 820,
     titleBarStyle: 'hiddenInset',
     vibrancy: 'under-window',
     visualEffectState: 'active',

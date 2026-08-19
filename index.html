@@ -33,7 +33,11 @@
     background: var(--bg);
     color: var(--cream);
     user-select: none;
-    overflow: hidden;
+    /* Permanent safety: never clip content past the window. The window has a
+       fixed height, so any added rows scroll instead of becoming unreachable.
+       Without this, the Restore Sleep button kept getting pushed off-screen. */
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   /* Subtle animated background — warm gold/orange drift */
