@@ -62,13 +62,32 @@
     position: relative;
     z-index: 1;
     display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: center;
+    gap: 24px;
+    width: 100%;
+    max-width: 700px;
+    padding: 32px 28px 24px;
+    -webkit-app-region: drag;
+  }
+
+  /* Left column: brand + timer + status */
+  .col-left {
+    display: flex;
     flex-direction: column;
     align-items: center;
-    width: 100%;
-    max-width: 380px;
-    padding: 40px 30px 30px;
-    padding-top: 50px;
-    -webkit-app-region: drag;
+    justify-content: flex-start;
+    flex: 0 0 200px;
+  }
+
+  /* Right column: all controls */
+  .col-right {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .app button,
@@ -511,111 +530,106 @@
 </div>
 
 <div class="app">
-  <!-- Header -->
-  <div class="logo">
-    <img class="logo-icon" src="icon.png" alt="MacClosedAwake">
-    <span class="logo-text">MacClosedAwake</span>
-  </div>
-  <div class="tagline">Lid closed. Still awake.</div>
+  <!-- Left column: brand, timer, status -->
+  <div class="col-left">
+    <div class="logo">
+      <img class="logo-icon" src="icon.png" alt="MacClosedAwake">
+      <span class="logo-text">MacClosedAwake</span>
+    </div>
+    <div class="tagline">Lid closed. Still awake.</div>
 
-  <!-- Timer Ring -->
-  <div class="timer-wrap">
-    <svg class="timer-ring" viewBox="0 0 180 180">
-      <defs>
-        <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#f0c04a"/>
-          <stop offset="100%" stop-color="#e8935a"/>
-        </linearGradient>
-      </defs>
-      <circle class="timer-ring-bg" cx="90" cy="90" r="80"/>
-      <circle class="timer-ring-progress" id="timerRing" cx="90" cy="90" r="80"/>
-    </svg>
-    <div class="timer-center">
-      <div class="timer-value" id="timer">--:--</div>
-      <div class="timer-label" id="timerLabel">ready</div>
+    <div class="timer-wrap">
+      <svg class="timer-ring" viewBox="0 0 180 180">
+        <defs>
+          <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#f0c04a"/>
+            <stop offset="100%" stop-color="#e8935a"/>
+          </linearGradient>
+        </defs>
+        <circle class="timer-ring-bg" cx="90" cy="90" r="80"/>
+        <circle class="timer-ring-progress" id="timerRing" cx="90" cy="90" r="80"/>
+      </svg>
+      <div class="timer-center">
+        <div class="timer-value" id="timer">--:--</div>
+        <div class="timer-label" id="timerLabel">ready</div>
+      </div>
+    </div>
+
+    <div class="status-pill" id="statusPill">
+      <div class="status-dot"></div>
+      <span id="statusText">Sleep normal</span>
     </div>
   </div>
 
-  <!-- Status -->
-  <div class="status-pill" id="statusPill">
-    <div class="status-dot"></div>
-    <span id="statusText">Sleep normal</span>
-  </div>
+  <!-- Right column: all controls -->
+  <div class="col-right">
+    <label class="lpm-row" id="lpmRow" onclick="toggleLowPower(event)">
+      <input type="checkbox" id="lpmCheckbox">
+      <div class="lpm-toggle"></div>
+      <div>
+        <div class="lpm-label">Low Power Mode while awake</div>
+      </div>
+      <div class="lpm-desc">Cooler &amp; quieter lid-closed runs</div>
+    </label>
 
-  <!-- Low Power Mode toggle -->
-  <label class="lpm-row" id="lpmRow" onclick="toggleLowPower(event)">
-    <input type="checkbox" id="lpmCheckbox">
-    <div class="lpm-toggle"></div>
-    <div>
-      <div class="lpm-label">Low Power Mode while awake</div>
+    <label class="lpm-row" id="batteryProtectRow" onclick="toggleBatteryProtect(event)">
+      <input type="checkbox" id="batteryProtectCheckbox">
+      <div class="lpm-toggle"></div>
+      <div>
+        <div class="lpm-label">Battery protection (≤2%)</div>
+      </div>
+      <div class="lpm-desc">Auto-restore sleep to prevent data loss</div>
+    </label>
+
+    <label class="lpm-row" id="forceSleepRow" onclick="toggleForceSleep(event)">
+      <input type="checkbox" id="forceSleepCheckbox">
+      <div class="lpm-toggle"></div>
+      <div>
+        <div class="lpm-label">Force sleep at ≤2%</div>
+      </div>
+      <div class="lpm-desc">Sleep immediately, even with the lid open</div>
+    </label>
+
+    <div id="batteryWarn" style="display:none;width:100%;margin-bottom:16px;padding:10px 14px;border-radius:12px;background:rgba(232,147,90,0.10);border:1px solid rgba(232,147,90,0.30);font-size:11px;line-height:1.5;color:#e8935a"></div>
+
+    <div class="upgrade-banner" id="upgradeBanner" onclick="openUpgrade()">
+      <div class="upgrade-title">&#x2B50; Upgrade to Pro</div>
+      <div class="upgrade-desc">Unlock unlimited sessions &amp; forever mode · <span style="text-decoration:underline">Enter license key</span></div>
     </div>
-    <div class="lpm-desc">Cooler &amp; quieter lid-closed runs</div>
-  </label>
 
-  <!-- Battery protection toggle -->
-  <label class="lpm-row" id="batteryProtectRow" onclick="toggleBatteryProtect(event)">
-    <input type="checkbox" id="batteryProtectCheckbox">
-    <div class="lpm-toggle"></div>
-    <div>
-      <div class="lpm-label">Battery protection (≤2%)</div>
+    <div class="presets">
+      <button class="preset" data-secs="1800" onclick="start(1800)">
+        <span class="preset-time">30m</span>
+      </button>
+      <button class="preset" data-secs="3600" onclick="start(3600)">
+        <span class="preset-time">1h</span>
+      </button>
+      <button class="preset" data-secs="7200" onclick="start(7200)">
+        <span class="preset-time">2h</span>
+      </button>
+      <button class="preset" data-secs="14400" onclick="start(14400)">
+        <span class="preset-time">4h</span>
+        <span class="pro-badge" data-pro-lock>PRO</span>
+      </button>
+      <button class="preset" data-secs="28800" onclick="start(28800)">
+        <span class="preset-time">8h</span>
+        <span class="pro-badge" data-pro-lock>PRO</span>
+      </button>
+      <button class="preset" data-secs="43200" onclick="start(43200)">
+        <span class="preset-time">12h</span>
+        <span class="pro-badge" data-pro-lock>PRO</span>
+      </button>
     </div>
-    <div class="lpm-desc">Auto-restore sleep to prevent data loss</div>
-  </label>
 
-  <!-- Force sleep toggle -->
-  <label class="lpm-row" id="forceSleepRow" onclick="toggleForceSleep(event)">
-    <input type="checkbox" id="forceSleepCheckbox">
-    <div class="lpm-toggle"></div>
-    <div>
-      <div class="lpm-label">Force sleep at ≤2%</div>
+    <button class="forever-btn" id="foreverBtn" onclick="start(0)">
+      &#x221E; &nbsp;FOREVER MODE &nbsp;<span class="pro-tag" data-pro-lock>PRO</span>
+    </button>
+
+    <button class="stop-btn" onclick="stop()">Restore Sleep</button>
+
+    <div class="footer">
+      <span id="appVersion">MacClosedAwake</span> &mdash; <a href="#" onclick="openUpgrade()">Upgrade</a>
     </div>
-    <div class="lpm-desc">Sleep immediately, even with the lid open</div>
-  </label>
-
-  <!-- Battery warning (shown when running on battery) -->
-  <div id="batteryWarn" style="display:none;width:100%;margin-bottom:16px;padding:10px 14px;border-radius:12px;background:rgba(232,147,90,0.10);border:1px solid rgba(232,147,90,0.30);font-size:11px;line-height:1.5;color:#e8935a"></div>
-
-  <!-- Upgrade banner (shown when free user hits limit) -->
-  <div class="upgrade-banner" id="upgradeBanner" onclick="openUpgrade()">
-    <div class="upgrade-title">&#x2B50; Upgrade to Pro</div>
-    <div class="upgrade-desc">Unlock unlimited sessions &amp; forever mode · <span style="text-decoration:underline">Enter license key</span></div>
-  </div>
-
-  <!-- Presets -->
-  <div class="presets">
-    <button class="preset" data-secs="1800" onclick="start(1800)">
-      <span class="preset-time">30m</span>
-    </button>
-    <button class="preset" data-secs="3600" onclick="start(3600)">
-      <span class="preset-time">1h</span>
-    </button>
-    <button class="preset" data-secs="7200" onclick="start(7200)">
-      <span class="preset-time">2h</span>
-    </button>
-    <button class="preset" data-secs="14400" onclick="start(14400)">
-      <span class="preset-time">4h</span>
-      <span class="pro-badge" data-pro-lock>PRO</span>
-    </button>
-    <button class="preset" data-secs="28800" onclick="start(28800)">
-      <span class="preset-time">8h</span>
-      <span class="pro-badge" data-pro-lock>PRO</span>
-    </button>
-    <button class="preset" data-secs="43200" onclick="start(43200)">
-      <span class="preset-time">12h</span>
-      <span class="pro-badge" data-pro-lock>PRO</span>
-    </button>
-  </div>
-
-  <!-- Forever -->
-  <button class="forever-btn" id="foreverBtn" onclick="start(0)">
-    &#x221E; &nbsp;FOREVER MODE &nbsp;<span class="pro-tag" data-pro-lock>PRO</span>
-  </button>
-
-  <!-- Stop -->
-  <button class="stop-btn" onclick="stop()">Restore Sleep</button>
-
-  <div class="footer">
-    <span id="appVersion">MacClosedAwake</span> &mdash; <a href="#" onclick="openUpgrade()">Upgrade</a>
   </div>
 </div>
 
