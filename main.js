@@ -764,7 +764,7 @@ async function doCleanup() {
   }
 }
 
-// ── Nuclear: quit every user app, force-kill stragglers, reboot ──
+// ── Nuclear: quit every user app, force-kill stragglers, then shut down or reboot ──
 function execScriptFile(file) {
   return new Promise((resolve) => {
     exec(`bash "${file}"`, (err, stdout, stderr) => {
@@ -775,11 +775,14 @@ function execScriptFile(file) {
   })
 }
 
-async function runNuclear() {
+// mode: 'shutdown' → power off; 'restart' → reboot
+async function runNuclear(mode) {
+  const finalCmd = mode === 'shutdown' ? 'shutdown -h now' : 'shutdown -r now'
   // Phase 1 — graceful/force quit of every user GUI app, run as the user
   // (killing our own processes needs no privileges). We exclude system
   // processes by binary path prefix and our own app; everything else is a
-  // user app and gets quit then force-quit. Reboot is issued separately.
+  // user app and gets quit then force-quit. The shut down / reboot is issued
+  // separately via the privileged path.
   const script = `#!/bin/bash
 APP_PIDS=$(osascript -e 'tell application "System Events" to get unix id of every application process whose background only is false' 2>/dev/null || true)
 # Graceful quit first (SIGTERM)
@@ -801,8 +804,8 @@ for pid in $APP_PIDS; do
     kill -9 "$pid" 2>/dev/null || true
   fi
 done
-# Trigger a reboot via the normal privileged path.
-osascript -e 'do shell script "shutdown -r now" with administrator privileges'
+# Trigger shutdown/reboot via the normal privileged path.
+osascript -e 'do shell script "${finalCmd}" with administrator privileges'
 `
   const scriptPath = '/tmp/mca-nuclear.sh'
   fs.writeFileSync(scriptPath, script, { mode: 0o755 })
@@ -810,10 +813,11 @@ osascript -e 'do shell script "shutdown -r now" with administrator privileges'
   return step
 }
 
-ipcMain.handle('nuclear', async () => {
+ipcMain.handle('nuclear', async (_, mode) => {
   try {
-    logError('NUCLEAR: quitting all apps and rebooting')
-    const result = await runNuclear()
+    const action = mode === 'shutdown' ? 'shutting down' : 'rebooting'
+    logError(`NUCLEAR: quitting all apps and ${action}`)
+    const result = await runNuclear(mode)
     return result.ok ? { ok: true } : { ok: false, error: result.stderr }
   } catch (e) {
     logError('nuclear failed:', e.message)
@@ -855,11 +859,14 @@ function fmtTime(s) {
 function createWindow() {
   win = new BrowserWindow({
     width: 740,
-    height: 560,
+    height: 740,
     resizable: true,
     maximizable: true,
     minWidth: 600,
-    minHeight: 440,
+    // Worst-case content (non-Pro + upgrade banner + battery warning) is ~720px.
+    // minHeight must be ≥ that so shrinking can never push a button below the
+    // fold — the window only gets bigger from here.
+    minHeight: 740,
     titleBarStyle: 'hiddenInset',
     vibrancy: 'under-window',
     visualEffectState: 'active',

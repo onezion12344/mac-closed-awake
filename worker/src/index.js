@@ -66,8 +66,21 @@ export default {
           return new Response(JSON.stringify({ error: 'No email on Stripe session' }), { status: 400, headers: corsHeaders })
         }
 
-        const licenseKey = await mintKey(env, { email, tier: 'lifetime' })
-        return new Response(JSON.stringify({ licenseKey, email, tier: 'lifetime' }), { headers: corsHeaders })
+        // How many codes did they buy? A normal Lifetime link has quantity 1;
+        // the "friend 2-pack" link sets quantity 2 and mints two keys.
+        const lineItems = (session.line_items && session.line_items.data) || []
+        const quantity = lineItems.reduce((sum, li) => sum + (li.quantity || 1), 0) || 1
+        const count = Math.min(quantity, 10) // sanity cap
+
+        const licenseKeys = []
+        for (let i = 0; i < count; i++) {
+          licenseKeys.push(await mintKey(env, { email, tier: 'lifetime', seq: i }))
+        }
+
+        return new Response(
+          JSON.stringify({ licenseKeys, email, tier: 'lifetime', count }),
+          { headers: corsHeaders }
+        )
       } catch (err) {
         return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders })
       }
@@ -108,13 +121,17 @@ export default {
 // ─── Stripe ──────────────────────────────────────────────────────────────────
 
 async function stripeRetrieve(env, sessionId) {
-  const res = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-  })
+  const res = await fetch(
+    `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}` +
+      `?expand[]=line_items`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    }
+  )
   if (!res.ok) {
     const text = await res.text()
     throw new Error(`Stripe API ${res.status}: ${text.slice(0, 200)}`)
@@ -124,11 +141,13 @@ async function stripeRetrieve(env, sessionId) {
 
 // ─── Key minting ─────────────────────────────────────────────────────────────
 
-async function mintKey(env, { email, tier }) {
+// seq keeps two keys minted in the same millisecond distinct — the "2-pack"
+// friend deal must hand out two different codes.
+async function mintKey(env, { email, tier, seq }) {
   const privateKey = env.MCA_PRIVATE_KEY
   if (!privateKey) throw new Error('Server misconfigured (missing MCA_PRIVATE_KEY)')
 
-  const payload = JSON.stringify({ email, tier, ts: Date.now() })
+  const payload = JSON.stringify({ email, tier, ts: Date.now(), seq: seq || 0 })
   const payloadB64 = btoa(payload)
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
 
@@ -236,20 +255,31 @@ function successPageHtml(sessionId) {
     '    })\n' +
     '    .then(function(r) { return r.json(); })\n' +
     '    .then(function(data) {\n' +
-    '      if (data.licenseKey) {\n' +
-    '        var keyDiv = document.createElement("div");\n' +
-    '        keyDiv.className = "key-box";\n' +
-    '        keyDiv.textContent = data.licenseKey;\n' +
-    '        var btn = document.createElement("button");\n' +
-    '        btn.className = "btn";\n' +
-    '        btn.textContent = "Copy Key";\n' +
-    '        btn.onclick = function() {\n' +
-    '          navigator.clipboard.writeText(data.licenseKey);\n' +
-    '          btn.textContent = "Copied!";\n' +
-    '        };\n' +
+    '      var keys = data.licenseKeys || (data.licenseKey ? [data.licenseKey] : []);\n' +
+    '      if (keys.length) {\n' +
     '        keyArea.innerHTML = "";\n' +
-    '        keyArea.appendChild(keyDiv);\n' +
-    '        keyArea.appendChild(btn);\n' +
+    '        keys.forEach(function(key, i) {\n' +
+    '          if (keys.length > 1) {\n' +
+    '            var who = document.createElement("p");\n' +
+    '            who.textContent = (i === 0 ? "Yours" : "For your friend") + " — code " + (i + 1) + " of " + keys.length;\n' +
+    '            who.style.cssText = "color:#8a9ab0;font-size:12px;margin:8px 0 4px;";\n' +
+    '            keyArea.appendChild(who);\n' +
+    '          }\n' +
+    '          var keyDiv = document.createElement("div");\n' +
+    '          keyDiv.className = "key-box";\n' +
+    '          keyDiv.textContent = key;\n' +
+    '          var btn = document.createElement("button");\n' +
+    '          btn.className = "btn";\n' +
+    '          btn.textContent = "Copy";\n' +
+    '          btn.onclick = function() {\n' +
+    '            navigator.clipboard.writeText(key);\n' +
+    '            btn.textContent = "Copied!";\n' +
+    '          };\n' +
+    '          var row = document.createElement("div");\n' +
+    '          row.appendChild(keyDiv);\n' +
+    '          row.appendChild(btn);\n' +
+    '          keyArea.appendChild(row);\n' +
+    '        });\n' +
     '      } else {\n' +
     '        errEl.style.display = "block";\n' +
     '        errEl.textContent = data.error || "Failed to generate key";\n' +

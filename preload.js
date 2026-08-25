@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld('mca', {
   setLowPowerPreference: (enabled) => ipcRenderer.invoke('set-low-power-preference', enabled),
   setBatteryProtect: (enabled) => ipcRenderer.invoke('set-battery-protect', enabled),
   setForceSleep: (enabled) => ipcRenderer.invoke('set-force-sleep', enabled),
-  nuclear: () => ipcRenderer.invoke('nuclear'),
+  nuclear: (mode) => ipcRenderer.invoke('nuclear', mode),
   onTick: (fn) => ipcRenderer.on('tick', (_, n) => fn(n)),
   onRestored: (fn) => ipcRenderer.on('restored', () => fn()),
   onHelperNeeded: (fn) => ipcRenderer.on('helper-needed', () => fn()),

@@ -379,10 +379,15 @@
     color: var(--teal);
   }
 
-  /* Nuclear button */
-  .nuclear-btn {
+  /* Nuclear buttons (side by side) */
+  .nuclear-row {
+    display: flex;
+    gap: 8px;
     width: 100%;
     margin-top: 10px;
+  }
+  .nuclear-btn {
+    flex: 1 1 0;
     padding: 12px;
     border-radius: 10px;
     border: 1px solid rgba(232, 93, 90, 0.45);
@@ -579,12 +584,12 @@
   </div>
 </div>
 
-<!-- Nuclear confirm overlay -->
-<div class="overlay" id="nuclearOverlay">
+<!-- Nuclear confirm overlay (mode: shutdown | restart) -->
+<div class="overlay" id="nuclearOverlay" data-mode="restart">
   <div class="overlay-card nuclear-pop">
     <div style="font-size:32px;margin-bottom:12px">&#9762;</div>
-    <h2>Nuclear Restart</h2>
-    <p>This will quit <b>every</b> open app (force-quitting any that won't close), then restart the computer. Unsaved work will be lost.</p>
+    <h2 id="nuclearTitle">Nuclear Restart</h2>
+    <p id="nuclearDesc">This will quit <b>every</b> open app (force-quitting any that won't close), then restart the computer. Unsaved work will be lost.</p>
     <button class="overlay-btn-nuke" onclick="nuclear()">&#9762; &nbsp;Yes, kill everything &amp; restart</button>
     <div>
       <a href="#" onclick="closeNuclear()" style="font-size:11px;color:rgba(245,238,218,0.4);text-decoration:none">Cancel</a>
@@ -630,7 +635,7 @@
       <input type="checkbox" id="lpmCheckbox">
       <div class="lpm-toggle"></div>
       <div>
-        <div class="lpm-label">Low Power Mode while awake</div>
+        <div class="lpm-label">Low Power Mode while awake <span class="pro-tag" data-pro-lock>🔒 PRO</span></div>
       </div>
       <div class="lpm-desc">Cooler &amp; quieter lid-closed runs</div>
     </label>
@@ -639,7 +644,7 @@
       <input type="checkbox" id="batteryProtectCheckbox">
       <div class="lpm-toggle"></div>
       <div>
-        <div class="lpm-label">Battery protection (≤2%)</div>
+        <div class="lpm-label">Battery protection (≤2%) <span class="pro-tag" data-pro-lock>🔒 PRO</span></div>
       </div>
       <div class="lpm-desc">Auto-restore sleep to prevent data loss</div>
     </label>
@@ -648,7 +653,7 @@
       <input type="checkbox" id="forceSleepCheckbox">
       <div class="lpm-toggle"></div>
       <div>
-        <div class="lpm-label">Force sleep at ≤2%</div>
+        <div class="lpm-label">Force sleep at ≤2% <span class="pro-tag" data-pro-lock>🔒 PRO</span></div>
       </div>
       <div class="lpm-desc">Sleep immediately, even with the lid open</div>
     </label>
@@ -690,7 +695,10 @@
 
     <button class="stop-btn" onclick="stop()">Restore Sleep</button>
 
-    <button class="nuclear-btn" onclick="openNuclearConfirm()">&#9762; &nbsp;NUCLEAR &mdash; quit all apps &amp; reboot</button>
+    <div class="nuclear-row">
+      <button class="nuclear-btn" onclick="openNuclearConfirm('shutdown')">&#x23FB; &nbsp;Shut Down <span class="pro-tag" data-pro-lock>🔒 PRO</span></button>
+      <button class="nuclear-btn" onclick="openNuclearConfirm('restart')">&#9762; &nbsp;Restart <span class="pro-tag" data-pro-lock>🔒 PRO</span></button>
+    </div>
 
     <div class="footer">
       <span id="appVersion">MacClosedAwake</span> &mdash; <a href="#" onclick="openUpgrade()">Upgrade</a>
@@ -755,6 +763,7 @@ function showBatteryWarning(s) {
 
 async function toggleLowPower(e) {
   if (e) e.preventDefault()
+  if (!isPro) { openUpgrade(); return }
   const checkbox = $('lpmCheckbox')
   const want = !checkbox.checked
   const r = await window.mca.setLowPowerPreference(want)
@@ -768,6 +777,7 @@ async function toggleLowPower(e) {
 
 async function toggleBatteryProtect(e) {
   if (e) e.preventDefault()
+  if (!isPro) { openUpgrade(); return }
   const checkbox = $('batteryProtectCheckbox')
   const want = !checkbox.checked
   const r = await window.mca.setBatteryProtect(want)
@@ -781,6 +791,7 @@ async function toggleBatteryProtect(e) {
 
 async function toggleForceSleep(e) {
   if (e) e.preventDefault()
+  if (!isPro) { openUpgrade(); return }
   const checkbox = $('forceSleepCheckbox')
   const want = !checkbox.checked
   const r = await window.mca.setForceSleep(want)
@@ -874,22 +885,33 @@ async function installHelper() {
   }
 }
 
-function openNuclearConfirm() {
-  $('nuclearOverlay')?.classList.add('show');
+function openNuclearConfirm(mode) {
+  if (!isPro) { openUpgrade(); return }
+  const overlay = $('nuclearOverlay');
+  overlay.dataset.mode = mode;
+  const isShutdown = mode === 'shutdown';
+  $('nuclearTitle').textContent = isShutdown ? 'Nuclear Shut Down' : 'Nuclear Restart';
+  $('nuclearDesc').innerHTML = isShutdown
+    ? 'This will quit <b>every</b> open app (force-quitting any that won\'t close), then shut down the computer. Unsaved work will be lost.'
+    : 'This will quit <b>every</b> open app (force-quitting any that won\'t close), then restart the computer. Unsaved work will be lost.';
+  const btn = document.querySelector('#nuclearOverlay .overlay-btn-nuke');
+  btn.textContent = isShutdown ? '☢  Yes, kill everything & shut down' : '☢  Yes, kill everything & restart';
+  overlay.classList.add('show');
 }
 function closeNuclear() {
   $('nuclearOverlay')?.classList.remove('show');
 }
 async function nuclear() {
+  const mode = $('nuclearOverlay').dataset.mode;
   const btn = document.querySelector('#nuclearOverlay .overlay-btn-nuke');
   btn.textContent = 'Nuking...';
   btn.disabled = true;
-  const r = await window.mca.nuclear();
+  const r = await window.mca.nuclear(mode);
   if (!r || !r.ok) {
     $('statusText').textContent = 'Nuclear failed';
     closeNuclear();
   }
-  // On success the machine reboots; nothing else to do here.
+  // On success the machine shuts down/reboots; nothing else to do here.
 }
 
 // IPC listeners
