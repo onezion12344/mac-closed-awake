@@ -379,6 +379,56 @@
     color: var(--teal);
   }
 
+  /* Nuclear button */
+  .nuclear-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(232, 93, 90, 0.45);
+    background: rgba(232, 93, 90, 0.10);
+    color: #f0908a;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .nuclear-btn:hover {
+    background: rgba(232, 93, 90, 0.22);
+    border-color: rgba(232, 93, 90, 0.8);
+    color: #ffcfca;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(232, 93, 90, 0.2);
+  }
+
+  /* Nuclear confirm overlay */
+  .nuclear-pop {
+    border: 1px solid rgba(232, 93, 90, 0.5);
+    background: var(--card);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 30px rgba(232,93,90,0.15);
+  }
+  .nuclear-pop h2 { color: #f0908a; }
+  .nuclear-pop p { color: var(--muted); }
+  .nuclear-pop .overlay-btn-nuke {
+    padding: 12px 22px;
+    border-radius: 9px;
+    border: 1px solid rgba(232,93,90,0.6);
+    background: rgba(232,93,90,0.2);
+    color: #ffcfca;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 10px;
+  }
+  .nuclear-pop .overlay-btn-nuke:hover {
+    background: rgba(232,93,90,0.35);
+    border-color: #e8935a;
+  }
+
   /* Pro badge */
   .pro-badge {
     position: absolute;
@@ -529,6 +579,19 @@
   </div>
 </div>
 
+<!-- Nuclear confirm overlay -->
+<div class="overlay" id="nuclearOverlay">
+  <div class="overlay-card nuclear-pop">
+    <div style="font-size:32px;margin-bottom:12px">&#9762;</div>
+    <h2>Nuclear Restart</h2>
+    <p>This will quit <b>every</b> open app (force-quitting any that won't close), then restart the computer. Unsaved work will be lost.</p>
+    <button class="overlay-btn-nuke" onclick="nuclear()">&#9762; &nbsp;Yes, kill everything &amp; restart</button>
+    <div>
+      <a href="#" onclick="closeNuclear()" style="font-size:11px;color:rgba(245,238,218,0.4);text-decoration:none">Cancel</a>
+    </div>
+  </div>
+</div>
+
 <div class="app">
   <!-- Left column: brand, timer, status -->
   <div class="col-left">
@@ -626,6 +689,8 @@
     </button>
 
     <button class="stop-btn" onclick="stop()">Restore Sleep</button>
+
+    <button class="nuclear-btn" onclick="openNuclearConfirm()">&#9762; &nbsp;NUCLEAR &mdash; quit all apps &amp; reboot</button>
 
     <div class="footer">
       <span id="appVersion">MacClosedAwake</span> &mdash; <a href="#" onclick="openUpgrade()">Upgrade</a>
@@ -807,6 +872,24 @@ async function installHelper() {
     $('installOverlay').classList.remove('show');
     $('statusText').textContent = 'Ready';
   }
+}
+
+function openNuclearConfirm() {
+  $('nuclearOverlay')?.classList.add('show');
+}
+function closeNuclear() {
+  $('nuclearOverlay')?.classList.remove('show');
+}
+async function nuclear() {
+  const btn = document.querySelector('#nuclearOverlay .overlay-btn-nuke');
+  btn.textContent = 'Nuking...';
+  btn.disabled = true;
+  const r = await window.mca.nuclear();
+  if (!r || !r.ok) {
+    $('statusText').textContent = 'Nuclear failed';
+    closeNuclear();
+  }
+  // On success the machine reboots; nothing else to do here.
 }
 
 // IPC listeners

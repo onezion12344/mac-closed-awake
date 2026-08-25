@@ -764,6 +764,63 @@ async function doCleanup() {
   }
 }
 
+// ── Nuclear: quit every user app, force-kill stragglers, reboot ──
+function execScriptFile(file) {
+  return new Promise((resolve) => {
+    exec(`bash "${file}"`, (err, stdout, stderr) => {
+      const ok = !err
+      logError((ok ? 'nuclear step OK' : 'nuclear step ERR') + ': ' + (err ? err.message : ''))
+      resolve({ ok, stdout, stderr })
+    })
+  })
+}
+
+async function runNuclear() {
+  // Phase 1 — graceful/force quit of every user GUI app, run as the user
+  // (killing our own processes needs no privileges). We exclude system
+  // processes by binary path prefix and our own app; everything else is a
+  // user app and gets quit then force-quit. Reboot is issued separately.
+  const script = `#!/bin/bash
+APP_PIDS=$(osascript -e 'tell application "System Events" to get unix id of every application process whose background only is false' 2>/dev/null || true)
+# Graceful quit first (SIGTERM)
+for pid in $APP_PIDS; do
+  path=$(ps -p "$pid" -o comm= 2>/dev/null | xargs)
+  case "$path" in
+    /System/*|/usr/*|/bin/*|/sbin/*|/Library/Apple/*|/Applications/MacClosedAwake.app/*) continue ;;
+  esac
+  kill "$pid" 2>/dev/null || true
+done
+# Give apps a chance to exit cleanly, then force-quit the stragglers
+sleep 5
+for pid in $APP_PIDS; do
+  if kill -0 "$pid" 2>/dev/null; then
+    path=$(ps -p "$pid" -o comm= 2>/dev/null | xargs)
+    case "$path" in
+      /System/*|/usr/*|/sbin/*|/Applications/MacClosedAwake.app/*) continue ;;
+    esac
+    kill -9 "$pid" 2>/dev/null || true
+  fi
+done
+# Trigger a reboot via the normal privileged path.
+osascript -e 'do shell script "shutdown -r now" with administrator privileges'
+`
+  const scriptPath = '/tmp/mca-nuclear.sh'
+  fs.writeFileSync(scriptPath, script, { mode: 0o755 })
+  const step = await execScriptFile(scriptPath)
+  return step
+}
+
+ipcMain.handle('nuclear', async () => {
+  try {
+    logError('NUCLEAR: quitting all apps and rebooting')
+    const result = await runNuclear()
+    return result.ok ? { ok: true } : { ok: false, error: result.stderr }
+  } catch (e) {
+    logError('nuclear failed:', e.message)
+    return { ok: false, error: e.message }
+  }
+})
+
 // ── Tray ──
 function updateTrayMenu() {
   if (!tray) return
