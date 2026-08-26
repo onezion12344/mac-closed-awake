@@ -1004,6 +1004,24 @@ footer a:hover { text-decoration: underline; }
         <h3 data-i18n="features.quickPresetsTitle">Quick Presets</h3>
         <p data-i18n="features.quickPresetsBody">30min, 1h, 2h, 4h, 8h, 12h. One click. That's it. Plus a menu bar app that stays out of your way.</p>
       </div>
+      <div class="feature-card reveal reveal-delay-6">
+        <div class="feature-icon icon-teal">🔋</div>
+        <div class="feature-kicker" data-i18n="features.battery">Battery</div>
+        <h3 data-i18n="features.batteryProtectTitle">Battery Protection</h3>
+        <p data-i18n="features.batteryProtectBody">Below 2% battery, sleep restores automatically so the Mac shuts down cleanly — no hibernate errors. Optional force-sleep at ≤2% means next boot needs no "charge to 1%" wait.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-7">
+        <div class="feature-icon icon-orange">🧊</div>
+        <div class="feature-kicker" data-i18n="features.lpm">Thermals</div>
+        <h3 data-i18n="features.lpmTitle">Cooler Long Runs</h3>
+        <p data-i18n="features.lpmBody">Keep-awake and Low Power Mode run together, so all-night headless tasks stay quiet and cool.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-8">
+        <div class="feature-icon icon-gold">☢️</div>
+        <div class="feature-kicker" data-i18n="features.nuclear">Power</div>
+        <h3 data-i18n="features.nuclearTitle">NUCLEAR Shut Down / Restart</h3>
+        <p data-i18n="features.nuclearBody">macOS won't auto-kill hung apps on reboot like Windows. Nuclear quits every app, force-quits stragglers, then shuts down or reboots. There's a hidden countdown show next to it. 🎉</p>
+      </div>
     </div>
   </div>
 </section>
@@ -1068,6 +1086,41 @@ footer a:hover { text-decoration: underline; }
             <td><span class="cell-no">❌</span></td>
             <td data-i18n="comparison.appStore">App Store</td>
             <td class="highlight"><span class="cell-yes">✅</span> Homebrew</td>
+          </tr>
+          <tr>
+            <td data-i18n="comparison.row.lpmTogether">Low Power Mode + keep-awake together</td>
+            <td><span class="cell-no">❌</span></td>
+            <td><span class="cell-no">❌</span></td>
+            <td><span class="cell-no">❌</span></td>
+            <td class="highlight"><span class="cell-yes">✅</span></td>
+          </tr>
+          <tr>
+            <td data-i18n="comparison.row.batteryProtect">Battery protection ≤2%</td>
+            <td><span class="cell-no">❌</span></td>
+            <td><span class="cell-no">❌</span></td>
+            <td><span class="cell-no">❌</span></td>
+            <td class="highlight"><span class="cell-yes">✅</span></td>
+          </tr>
+          <tr>
+            <td data-i18n="comparison.row.forceSleep">Force sleep at ≤2% (5V1A-friendly boot)</td>
+            <td><span class="cell-no">❌</span></td>
+            <td><span class="cell-no">❌</span></td>
+            <td><span class="cell-no">❌</span></td>
+            <td class="highlight"><span class="cell-yes">✅</span></td>
+          </tr>
+          <tr>
+            <td data-i18n="comparison.row.nuclear">NUCLEAR shut down / restart (kills hung apps)</td>
+            <td><span class="cell-no">❌</span></td>
+            <td><span class="cell-no">❌</span></td>
+            <td><span class="cell-no">❌</span></td>
+            <td class="highlight"><span class="cell-yes">✅</span></td>
+          </tr>
+          <tr>
+            <td data-i18n="comparison.row.resizable">Resizable window</td>
+            <td><span class="cell-no">❌</span></td>
+            <td><span class="cell-no">❌</span></td>
+            <td><span class="cell-yes">✅</span></td>
+            <td class="highlight"><span class="cell-yes">✅</span></td>
           </tr>
         </tbody>
       </table>
@@ -1322,6 +1375,20 @@ var I18N = {
     'comparison.oneClick': 'One click',
     'comparison.row.oneClick': 'One-click install',
     'comparison.appStore': 'App Store',
+    'comparison.row.lpmTogether': 'Low Power Mode + keep-awake together',
+    'comparison.row.batteryProtect': 'Battery protection ≤2%',
+    'comparison.row.forceSleep': 'Force sleep at ≤2% (5V1A-friendly boot)',
+    'comparison.row.nuclear': 'NUCLEAR shut down / restart (kills hung apps)',
+    'comparison.row.resizable': 'Resizable window',
+    'features.battery': 'Battery',
+    'features.batteryProtectTitle': 'Battery Protection',
+    'features.batteryProtectBody': 'Below 2% battery, sleep restores automatically so the Mac shuts down cleanly — no hibernate errors. Optional force-sleep at ≤2% means next boot needs no "charge to 1%" wait.',
+    'features.lpm': 'Thermals',
+    'features.lpmTitle': 'Cooler Long Runs',
+    'features.lpmBody': 'Keep-awake and Low Power Mode run together, so all-night headless tasks stay quiet and cool.',
+    'features.nuclear': 'Power',
+    'features.nuclearTitle': 'NUCLEAR Shut Down / Restart',
+    'features.nuclearBody': "macOS won't auto-kill hung apps on reboot like Windows. Nuclear quits every app, force-quits stragglers, then shuts down or reboots. There's a hidden countdown show next to it. 🎉",
     'comparison.callout1': 'Claude Code keeps your Mac awake — but not when you close the lid.',
     'comparison.callout2': 'MacClosedAwake does.',
     'install.kicker': 'Install',
@@ -1450,6 +1517,20 @@ var I18N = {
     'comparison.oneClick': '一键',
     'comparison.row.oneClick': '一键安装',
     'comparison.appStore': 'App Store',
+    'comparison.row.lpmTogether': '低电量模式 + 保持唤醒同时运行',
+    'comparison.row.batteryProtect': '电量低于 2% 自动恢复休眠（电池保护）',
+    'comparison.row.forceSleep': '电量低于 2% 强制休眠（5V1A 也能开机）',
+    'comparison.row.nuclear': '核弹 关机 / 重启（自动杀卡死 App）',
+    'comparison.row.resizable': '窗口可调整大小',
+    'features.battery': '电池',
+    'features.batteryProtectTitle': '电池保护',
+    'features.batteryProtectBody': '电量低于 2% 自动恢复正常休眠，Mac 干净关机不报错。可选 ≤2% 强制休眠，下次开机不用等充到 1%，插电按按钮就能开机。',
+    'features.lpm': '散热',
+    'features.lpmTitle': '长时间运行更凉快',
+    'features.lpmBody': '保持唤醒和低电量模式可以同时开启，通宵跑任务安静又凉快。',
+    'features.nuclear': '电源',
+    'features.nuclearTitle': '核弹 关机 / 重启',
+    'features.nuclearBody': 'Mac 不像 Windows，关机/重启不会自动杀掉卡死的 App。核弹会正常退出每个应用，退不掉的就强杀，再关机或重启。旁边还藏着一个倒数彩蛋。🎉',
     'comparison.callout1': 'Claude Code 让你的 Mac 保持唤醒 —— 但合盖时不行。',
     'comparison.callout2': 'MacClosedAwake 可以。',
     'install.kicker': '安装',

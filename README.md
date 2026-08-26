@@ -21,8 +21,13 @@ Not anymore.
 ## Features
 
 - ⚡ **Lid-close safe** — stays awake even when MacBook lid is closed
+- 🧊 **Low Power Mode + awake, together** — long headless runs stay cool (LPM no longer conflicts with keep-awake)
 - ⏱️ **Timed** — 30min / 1h / 2h / 4h / 8h / 12h presets
 - ♾️ **Forever mode** — stays on until you manually stop
+- 🔋 **Battery protection (≤2%)** — auto-restores sleep before the battery dies, so shutdown is clean (no errors)
+- 😴 **Force sleep at ≤2%** — sleeps instantly at critical battery; next boot needs no "charge to 1%" dance — plug in (even 5V1A) and power on
+- 🪟 **Resizable window** — drag it to any size; contents scroll instead of getting clipped
+- ☢️ **NUCLEAR (Shut Down / Restart)** — macOS doesn't auto-kill hung apps on reboot like Windows does. Nuclear gracefully quits every app, force-quits stragglers, then shuts down or reboots. 🎉 **Easter egg hidden next to it** — enable the "Countdown show" toggle and confirm: fullscreen 5→0 alarm + ticks before the machine goes dark.
 - 🔄 **Auto-restore** — sleep re-enabled automatically when timer ends
 - 🪄 **Menu bar app** — lives in tray, stays out of your way
 - 🔐 **No password prompts** — install helper once, done forever
