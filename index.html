@@ -434,6 +434,98 @@
     border-color: #e8935a;
   }
 
+  /* Countdown-show toggle (easter egg) */
+  .egg-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 8px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    background: var(--card);
+    border: 1px dashed var(--border);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .egg-row:hover { border-color: rgba(240, 192, 74, 0.4); }
+  .egg-row input { display: none; }
+  .egg-toggle {
+    width: 34px; height: 18px;
+    border-radius: 18px;
+    background: var(--border);
+    position: relative;
+    transition: background 0.25s ease;
+    flex-shrink: 0;
+  }
+  .egg-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--cream);
+    transition: transform 0.25s ease;
+  }
+  .egg-row input:checked + .egg-toggle { background: var(--gold); }
+  .egg-row input:checked + .egg-toggle::after { transform: translateX(16px); }
+  .egg-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .egg-row input:checked + .egg-toggle + .egg-label { color: var(--gold); }
+
+  /* Countdown show overlay — fullscreen alarm + big countdown */
+  .countdown {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    background: #000;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    user-select: none;
+    animation: countdownPulse 1s ease-in-out infinite;
+  }
+  .countdown.show { display: flex; }
+  @keyframes countdownPulse {
+    0%, 100% { background: #000; }
+    50% { background: #1a0000; }
+  }
+  .countdown-warning {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    font-weight: 700;
+    color: #ff3b30;
+    letter-spacing: 4px;
+    text-shadow: 0 0 20px rgba(255, 59, 48, 0.8);
+    margin-bottom: 24px;
+    animation: blink 0.5s step-start infinite;
+  }
+  .countdown-num {
+    font-family: var(--font-display);
+    font-size: 160px;
+    font-weight: 700;
+    line-height: 1;
+    color: #ff3b30;
+    text-shadow: 0 0 60px rgba(255, 59, 48, 0.9);
+    font-variant-numeric: tabular-nums;
+  }
+  .countdown-label {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-top: 8px;
+  }
+  @keyframes blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0.2; }
+  }
+
   /* Pro badge */
   .pro-badge {
     position: absolute;
@@ -597,6 +689,13 @@
   </div>
 </div>
 
+<!-- Countdown show (easter egg) — fullscreen countdown before nuclear -->
+<div class="countdown" id="countdownOverlay">
+  <div class="countdown-warning">&#9888; &nbsp;SYSTEM NUCLEAR&nbsp; &#9888;</div>
+  <div class="countdown-num" id="countdownNum">5</div>
+  <div class="countdown-label" id="countdownLabel">seconds</div>
+</div>
+
 <div class="app">
   <!-- Left column: brand, timer, status -->
   <div class="col-left">
@@ -699,6 +798,12 @@
       <button class="nuclear-btn" onclick="openNuclearConfirm('shutdown')">&#x23FB; &nbsp;Shut Down <span class="pro-tag" data-pro-lock>🔒 PRO</span></button>
       <button class="nuclear-btn" onclick="openNuclearConfirm('restart')">&#9762; &nbsp;Restart <span class="pro-tag" data-pro-lock>🔒 PRO</span></button>
     </div>
+
+    <label class="egg-row" title="Countdown show before shut down / restart">
+      <input type="checkbox" id="eggCheckbox" onclick="toggleEgg(event)">
+      <div class="egg-toggle"></div>
+      <div class="egg-label">&#127881; &nbsp;Countdown show</div>
+    </label>
 
     <div class="footer">
       <span id="appVersion">MacClosedAwake</span> &mdash; <a href="#" onclick="openUpgrade()">Upgrade</a>
@@ -906,12 +1011,68 @@ async function nuclear() {
   const btn = document.querySelector('#nuclearOverlay .overlay-btn-nuke');
   btn.textContent = 'Nuking...';
   btn.disabled = true;
+  closeNuclear();
+  if (eggEnabled) {
+    await runCountdown();
+  }
   const r = await window.mca.nuclear(mode);
   if (!r || !r.ok) {
     $('statusText').textContent = 'Nuclear failed';
-    closeNuclear();
   }
   // On success the machine shuts down/reboots; nothing else to do here.
+}
+
+// ── Easter egg: countdown show ──
+let eggEnabled = false;
+
+function toggleEgg(e) {
+  if (e) e.preventDefault();
+  const cb = $('eggCheckbox');
+  eggEnabled = cb.checked;
+  localStorage.setItem('mca.egg', eggEnabled ? '1' : '0');
+}
+
+// Web Audio: short tick, heavier at the end
+let eggAudioCtx = null;
+function eggTick(final) {
+  try {
+    if (!eggAudioCtx) eggAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = eggAudioCtx.currentTime;
+    const osc = eggAudioCtx.createOscillator();
+    const gain = eggAudioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(final ? 180 : 880, now);
+    gain.gain.setValueAtTime(final ? 0.9 : 0.35, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + (final ? 0.8 : 0.12));
+    osc.connect(gain);
+    gain.connect(eggAudioCtx.destination);
+    osc.start(now);
+    osc.stop(now + (final ? 0.8 : 0.12));
+  } catch {}
+}
+
+function runCountdown() {
+  return new Promise((resolve) => {
+    const overlay = $('countdownOverlay');
+    const num = $('countdownNum');
+    let n = 5;
+    overlay.classList.add('show');
+    num.textContent = n;
+    eggTick(false);
+    const iv = setInterval(() => {
+      n--;
+      if (n > 0) {
+        num.textContent = n;
+        eggTick(false);
+      } else {
+        clearInterval(iv);
+        num.textContent = '0';
+        eggTick(true);
+        // black-out moment, then fire
+        setTimeout(() => { resolve(); }, 600);
+      }
+    }, 1000);
+  });
 }
 
 // IPC listeners
@@ -965,6 +1126,8 @@ window.mca.status().then(s => {
   $('batteryProtectCheckbox').checked = batteryProtectEnabled;
   forceSleepEnabled = s.forceSleep === true; // default off
   $('forceSleepCheckbox').checked = forceSleepEnabled;
+  eggEnabled = localStorage.getItem('mca.egg') === '1';
+  $('eggCheckbox').checked = eggEnabled;
   showBatteryWarning(s);
 
   if (s.helperInstalled === false) {
