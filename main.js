@@ -647,6 +647,7 @@ ipcMain.handle('status', async () => {
     const lowPowerStatus = await getLowPowerStatus()
     const power = await getPowerSource()
     const cfg = loadConfig()
+    const storage = checkStorage()
     return {
       helperInstalled: true,
       disabled,
@@ -658,7 +659,8 @@ ipcMain.handle('status', async () => {
       forceSleep: cfg.forceSleep === true, // default off
       isAwake: cfg.isAwake === true,
       onAC: power.onAC,
-      batteryPercent: power.percent
+      batteryPercent: power.percent,
+      storage
     }
   } catch {
     return { helperInstalled: false, disabled: false, remaining: 0 }
@@ -694,9 +696,16 @@ ipcMain.handle('get-low-power-preference', () => {
 ipcMain.handle('set-low-power-preference', async (_, enabled) => {
   try {
     setLowPowerPreference(enabled)
-    // If we're currently awake, apply/unapply immediately
+    // Apply immediately if we're currently awake. Also force-off if a stale
+    // session left lowPowerModeActive=true but we're not awake (the previous
+    // session crashed / was force-killed, leaving pmset stuck ON — that's the
+    // "LPM 关不掉" bug).
+    const cfg = loadConfig()
     if (forever || remaining > 0) {
       await applyLowPowerMode(enabled)
+    } else if (cfg.lowPowerModeActive && !enabled) {
+      logError('LPM stuck-on from previous session — force-off')
+      await applyLowPowerMode(false).catch(() => {})
     }
     return { ok: true, enabled }
   } catch (e) {
@@ -763,6 +772,109 @@ async function doCleanup() {
     logError('Failed to re-enable sleep during cleanup:', e.message)
   }
 }
+
+// ── Unified cleanup ──
+async function doCleanup() {
+  logError('Running cleanup before quit')
+  stopCaffeinate()
+  stopPowerMonitor()
+  clearInterval(restoreTimer)
+
+  const cfg = loadConfig()
+  if (cfg.lowPowerModeActive) {
+    await applyLowPowerMode(false).catch(() => {})
+  }
+
+  try {
+    await sendHelper('ENABLE')
+    saveConfig({ ...loadConfig(), isAwake: false })
+  } catch (e) {
+    logError('Failed to re-enable sleep during cleanup:', e.message)
+  }
+}
+
+// ── Storage health & cleanup suggestions ──
+function checkStorage() {
+  try {
+    const out = require('child_process').execSync('df -k / | tail -1', { encoding: 'utf8' })
+    const m = out.match(/(\d+)\s+(\d+)\s+(\d+)/)
+    if (!m) return { freeBytes: 0, totalBytes: 0, memoryBytes: 0, warning: null }
+    const total = parseInt(m[1], 10) * 1024
+    const used = parseInt(m[2], 10) * 1024
+    const free = parseInt(m[3], 10) * 1024
+    const mem = require('os').totalmem()
+    // hibernatemode 3 writes a full RAM image; warn if free < memory.
+    // Use 0.8× memory as a softer "tight" threshold so the user sees a warning
+    // before the hibernate write actually fails.
+    const warning = free < mem
+      ? `Storage low — hibernate may fail and restart. ${(free / 1024 ** 3).toFixed(1)} GB free, RAM ${(mem / 1024 ** 3).toFixed(0)} GB.`
+      : free < mem * 0.8
+        ? `Storage getting tight — ${(free / 1024 ** 3).toFixed(1)} GB free.`
+        : null
+    return { freeBytes: free, totalBytes: total, usedBytes: used, memoryBytes: mem, warning }
+  } catch (e) {
+    return { freeBytes: 0, totalBytes: 0, memoryBytes: 0, warning: null }
+  }
+}
+
+// Scan well-known large directories and return their sizes. Read-only — we
+// never delete anything; the user clears them manually with the suggestions.
+function getCleanupSuggestions() {
+  const candidates = [
+    { name: 'WeChat (微信 cache & downloads)', path: '~/Library/Containers/com.tencent.xinWeChat' },
+    { name: 'QQ container', path: '~/Library/Containers/com.tencent.qq' },
+    { name: 'Microsoft Edge', path: '~/Library/Application Support/Microsoft Edge' },
+    { name: 'Notion cache', path: '~/Library/Application Support/Notion' },
+    { name: 'Docker containers', path: '~/Library/Containers/com.docker.docker' },
+    { name: 'Colima VM', path: '~/.colima' },
+    { name: 'Ollama models', path: '~/.ollama' },
+    { name: 'Homebrew cache', path: '~/Library/Caches/Homebrew' },
+    { name: 'pnpm store', path: '~/Library/pnpm' },
+    { name: 'npm cache', path: '~/.npm' },
+    { name: 'pip cache', path: '~/.cache/pip' },
+    { name: 'User Caches', path: '~/Library/Caches' },
+    { name: 'System logs (older)', path: '~/Library/Logs/DiagnosticReports' },
+  ]
+  const out = []
+  for (const c of candidates) {
+    const expanded = c.path.replace(/^~/, require('os').homedir())
+    try {
+      if (!require('fs').existsSync(expanded)) continue
+      const size = require('child_process').execSync(
+        `du -sh "${expanded}" 2>/dev/null | awk '{print $1}'`, { encoding: 'utf8', timeout: 8000 }
+      ).trim()
+      if (!size || size === '0B') continue
+      out.push({ name: c.name, path: expanded, size })
+    } catch {}
+  }
+  // Sort by size (best-effort: M > K, B as smallest)
+  const toMB = s => {
+    const m = s.match(/^([\d.]+)(B|K|M|G|T)$/i)
+    if (!m) return 0
+    const n = parseFloat(m[1]); const u = m[2].toUpperCase()
+    return n * ({ B: 1e-6, K: 1e-3, M: 1, G: 1e3, T: 1e6 }[u] || 0)
+  }
+  out.sort((a, b) => toMB(b.size) - toMB(a.size))
+  return out
+}
+
+ipcMain.handle('get-cleanup-suggestions', () => {
+  try {
+    const items = getCleanupSuggestions()
+    return { ok: true, items }
+  } catch (e) {
+    return { ok: false, error: e.message, items: [] }
+  }
+})
+
+ipcMain.handle('open-path', (_, p) => {
+  try {
+    require('child_process').exec(`open "${p}"`)
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e.message }
+  }
+})
 
 // ── Nuclear: quit every user app, force-kill stragglers, then shut down or reboot ──
 function execScriptFile(file) {

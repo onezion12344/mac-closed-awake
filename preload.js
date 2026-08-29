@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('mca', {
   setBatteryProtect: (enabled) => ipcRenderer.invoke('set-battery-protect', enabled),
   setForceSleep: (enabled) => ipcRenderer.invoke('set-force-sleep', enabled),
   nuclear: (mode) => ipcRenderer.invoke('nuclear', mode),
+  getCleanupSuggestions: () => ipcRenderer.invoke('get-cleanup-suggestions'),
+  openPath: (p) => ipcRenderer.invoke('open-path', p),
   onTick: (fn) => ipcRenderer.on('tick', (_, n) => fn(n)),
   onRestored: (fn) => ipcRenderer.on('restored', () => fn()),
   onHelperNeeded: (fn) => ipcRenderer.on('helper-needed', () => fn()),

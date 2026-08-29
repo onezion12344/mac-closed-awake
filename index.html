@@ -561,6 +561,84 @@
   }
   .footer a:hover { color: var(--gold); }
 
+  /* Cleanup button (storage helper) */
+  .cleanup-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .cleanup-btn:hover {
+    background: var(--surface);
+    border-color: rgba(58, 138, 138, 0.5);
+    color: var(--teal);
+  }
+
+  /* Cleanup overlay */
+  .cleanup-list {
+    max-height: 320px;
+    overflow-y: auto;
+    text-align: left;
+    margin: 12px 0 8px;
+  }
+  .cleanup-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    margin-bottom: 6px;
+    gap: 10px;
+  }
+  .cleanup-item-name {
+    font-size: 12px;
+    color: var(--cream);
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .cleanup-item-size {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--teal);
+    flex-shrink: 0;
+  }
+  .cleanup-open {
+    margin-left: 8px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .cleanup-open:hover { color: var(--teal); border-color: var(--teal); }
+  .cleanup-empty {
+    padding: 20px;
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+  }
+  .cleanup-total {
+    text-align: right;
+    font-size: 11px;
+    color: var(--gold);
+    font-family: var(--font-mono);
+    margin: 4px 0 10px;
+  }
+
   /* Upgrade banner */
   .upgrade-banner {
     display: none;
@@ -689,7 +767,24 @@
   </div>
 </div>
 
-<!-- Countdown show (easter egg) — fullscreen countdown before nuclear -->
+<!-- Cleanup suggestions overlay (read-only: lists big dirs, opens them in Finder) -->
+<div class="overlay" id="cleanupOverlay">
+  <div class="overlay-card" style="max-width: 460px; text-align: left;">
+    <div style="font-size:24px;margin-bottom:6px">&#129529;</div>
+    <h2 style="text-align:center">Free up disk space</h2>
+    <p style="color:var(--muted);font-size:12px;line-height:1.6;margin-bottom:12px;text-align:center">
+      Big directories sorted by size. Tap <em>Open</em> to inspect &amp; clean them in Finder — the app never deletes anything itself.
+    </p>
+    <div class="cleanup-total" id="cleanupTotal"></div>
+    <div class="cleanup-list" id="cleanupList">
+      <div class="cleanup-empty">Scanning…</div>
+    </div>
+    <div style="text-align:center;margin-top:8px">
+      <a href="#" onclick="closeCleanup()" style="font-size:11px;color:rgba(245,238,218,0.4);text-decoration:none">Close</a>
+    </div>
+  </div>
+</div>
+
 <div class="countdown" id="countdownOverlay">
   <div class="countdown-warning">&#9888; &nbsp;SYSTEM NUCLEAR&nbsp; &#9888;</div>
   <div class="countdown-num" id="countdownNum">5</div>
@@ -805,6 +900,8 @@
       <div class="egg-label">&#127881; &nbsp;Countdown show</div>
     </label>
 
+    <button class="cleanup-btn" onclick="openCleanup()">&#129529; &nbsp;Free up disk space…</button>
+
     <div class="footer">
       <span id="appVersion">MacClosedAwake</span> &mdash; <a href="#" onclick="openUpgrade()">Upgrade</a>
     </div>
@@ -850,20 +947,31 @@ function setActive(seconds) {
 // Below 2% the app auto-restores sleep so macOS can shut down cleanly.
 function showBatteryWarning(s) {
   const el = $('batteryWarn');
-  if (!el || s.onAC === undefined) return;
-  if (s.onAC) {
-    el.style.display = 'none';
-    return;
-  }
+  if (!el) return;
+
   const pct = typeof s.batteryPercent === 'number' ? s.batteryPercent : null;
-  const critical = pct !== null && pct <= 2;
-  const low = pct !== null && pct <= 20;
-  el.textContent = critical
-    ? `⛔ Critical battery (${pct}%) — sleep will auto-restore to protect your data.`
-    : low
-      ? `⚠︎ On battery (${pct}%) — plug in the charger. Lid-closed runs drain fast and may sleep anyway.`
-      : `⚠︎ On battery${pct !== null ? ` (${pct}%)` : ''} — plug in for reliable lid-closed operation.`;
-  el.style.display = 'block';
+  const critical = !s.onAC && pct !== null && pct <= 2;
+  const low = !s.onAC && pct !== null && pct <= 20;
+  const batMsg = s.onAC
+    ? null
+    : critical
+      ? `⛔ Critical battery (${pct}%) — sleep will auto-restore to protect your data.`
+      : low
+        ? `⚠︎ On battery (${pct}%) — plug in the charger. Lid-closed runs drain fast and may sleep anyway.`
+        : `⚠︎ On battery${pct !== null ? ` (${pct}%)` : ''} — plug in for reliable lid-closed operation.`;
+
+  // Storage warning is independent of power state — show always if tight.
+  // (hibernatemode 3 writes a full RAM image; low free space = forced hibernate
+  // fails and the Mac panics/restarts.)
+  const stWarn = (s.storage && s.storage.warning) ? `💾 ${s.storage.warning}` : null;
+
+  const msg = [batMsg, stWarn].filter(Boolean).join(' &nbsp;·&nbsp; ');
+  if (msg) {
+    el.innerHTML = msg;
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
 }
 
 async function toggleLowPower(e) {
@@ -1026,10 +1134,61 @@ async function nuclear() {
 let eggEnabled = false;
 
 function toggleEgg(e) {
-  if (e) e.preventDefault();
-  const cb = $('eggCheckbox');
-  eggEnabled = cb.checked;
-  localStorage.setItem('mca.egg', eggEnabled ? '1' : '0');
+  // Let the <label> natively flip the checkbox first, then read the new state.
+  // (preventDefault here would freeze cb.checked on the old value — the
+  // toggle would silently do nothing, which is the "countdown show 打不开" bug.)
+  const cb = $('eggCheckbox')
+  eggEnabled = cb.checked
+  localStorage.setItem('mca.egg', eggEnabled ? '1' : '0')
+}
+
+function openCleanup() {
+  $('cleanupOverlay').classList.add('show')
+  $('cleanupList').innerHTML = '<div class="cleanup-empty">Scanning…</div>'
+  $('cleanupTotal').textContent = ''
+  window.mca.getCleanupSuggestions().then(r => {
+    const list = $('cleanupList')
+    if (!r.ok || !r.items || r.items.length === 0) {
+      list.innerHTML = '<div class="cleanup-empty">No large directories found.</div>'
+      return
+    }
+    const toMB = s => {
+      const m = s.match(/^([\d.]+)(B|K|M|G|T)$/i)
+      if (!m) return 0
+      const n = parseFloat(m[1]); const u = m[2].toUpperCase()
+      return n * ({ B: 1e-6, K: 1e-3, M: 1, G: 1e3, T: 1e6 }[u] || 0)
+    }
+    let totalMB = 0
+    list.innerHTML = ''
+    r.items.forEach(it => {
+      const mb = toMB(it.size); totalMB += mb
+      const row = document.createElement('div')
+      row.className = 'cleanup-item'
+      row.innerHTML = `
+        <div style="flex:1;min-width:0">
+          <div class="cleanup-item-name">${it.name}</div>
+          <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted-dim);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.path}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <div class="cleanup-item-size">${it.size}</div>
+          <button class="cleanup-open" data-path="${it.path}">Open</button>
+        </div>`
+      list.appendChild(row)
+    })
+    list.querySelectorAll('.cleanup-open').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.preventDefault()
+        window.mca.openPath(btn.dataset.path)
+      })
+    })
+    const totalGB = totalMB / 1000
+    $('cleanupTotal').textContent = totalGB >= 1
+      ? `~${totalGB.toFixed(1)} GB across ${r.items.length} locations`
+      : `~${totalMB.toFixed(0)} MB across ${r.items.length} locations`
+  })
+}
+function closeCleanup() {
+  $('cleanupOverlay').classList.remove('show')
 }
 
 // Web Audio: short tick, heavier at the end
