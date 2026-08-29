@@ -263,6 +263,44 @@
     text-align: right;
     line-height: 1.4;
   }
+  /* LPM read-only indicator */
+  .lpm-readonly { cursor: default; }
+  .lpm-readonly:hover { border-color: var(--border); }
+  .lpm-info { flex: 1; min-width: 0; }
+  .lpm-hint {
+    font-size: 10px;
+    color: rgba(245, 238, 218, 0.4);
+    margin-top: 3px;
+    line-height: 1.4;
+  }
+  .lpm-system-link { color: var(--teal); opacity: 0.85; }
+  .lpm-toggle-display { position: relative; flex-shrink: 0; opacity: 0.85; }
+  .lpm-toggle-display[data-on="true"] { background: var(--teal); }
+  .lpm-toggle-display[data-on="false"] { background: var(--border); }
+  .lpm-knob {
+    position: absolute; top: 2px; left: 2px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--cream);
+    transition: transform 0.25s ease;
+  }
+  .lpm-toggle-display[data-on="true"] .lpm-knob { transform: translateX(18px); }
+  .lpm-status-pill {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+  }
+  .lpm-status-pill[data-on="true"] {
+    color: #0d1b2a;
+    background: var(--teal);
+    border-color: var(--teal);
+  }
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
@@ -825,14 +863,18 @@
 
   <!-- Right column: all controls -->
   <div class="col-right">
-    <label class="lpm-row" id="lpmRow" onclick="toggleLowPower(event)">
-      <input type="checkbox" id="lpmCheckbox">
-      <div class="lpm-toggle"></div>
-      <div>
-        <div class="lpm-label">Low Power Mode while awake <span class="pro-tag" data-pro-lock>🔒 PRO</span></div>
+    <!-- LPM status (read-only) — the actual toggle is in System Settings → Battery -->
+    <div class="lpm-row lpm-readonly" id="lpmRow">
+      <div class="lpm-toggle lpm-toggle-display" id="lpmIndicator" data-on="false">
+        <div class="lpm-knob"></div>
       </div>
-      <div class="lpm-desc">Cooler &amp; quieter lid-closed runs</div>
-    </label>
+      <div class="lpm-info">
+        <div class="lpm-label">SoC 低频模式 (Low Power Mode)</div>
+        <div class="lpm-desc">= macOS 系统设置里的『低电量模式』,CPU/GPU 降频以降低发热</div>
+        <div class="lpm-hint">去 <span class="lpm-system-link">系统设置 → 电池</span> 开关 · 实时跟随系统</div>
+      </div>
+      <div class="lpm-status-pill" id="lpmStatusPill" data-on="false">OFF</div>
+    </div>
 
     <label class="lpm-row" id="batteryProtectRow" onclick="toggleBatteryProtect(event)">
       <input type="checkbox" id="batteryProtectCheckbox">
@@ -914,7 +956,6 @@ let running = false;
 let isPro = false;
 let totalSecs = 0;
 let forever = false;
-let lowPowerEnabled = false;
 let batteryProtectEnabled = true;
 let forceSleepEnabled = false;
 
@@ -974,17 +1015,15 @@ function showBatteryWarning(s) {
   }
 }
 
-async function toggleLowPower(e) {
-  if (e) e.preventDefault()
-  if (!isPro) { openUpgrade(); return }
-  const checkbox = $('lpmCheckbox')
-  const want = !checkbox.checked
-  const r = await window.mca.setLowPowerPreference(want)
-  if (r.ok) {
-    lowPowerEnabled = r.enabled
-    checkbox.checked = r.enabled
-  } else {
-    checkbox.checked = lowPowerEnabled
+// LPM is read-only — toggle it in System Settings → Battery.
+// We just render the live state from status().
+function renderLpmStatus(s) {
+  const on = !!(s && s.lowPowerMode);
+  const ind = $('lpmIndicator'); if (ind) ind.setAttribute('data-on', on ? 'true' : 'false');
+  const pill = $('lpmStatusPill');
+  if (pill) {
+    pill.setAttribute('data-on', on ? 'true' : 'false');
+    pill.textContent = on ? 'ON' : 'OFF';
   }
 }
 
@@ -1279,8 +1318,7 @@ window.mca.onProStatus((pro) => {
 
 // Init
 window.mca.status().then(s => {
-  lowPowerEnabled = s.lowPowerEnabled || false;
-  $('lpmCheckbox').checked = lowPowerEnabled;
+  renderLpmStatus(s);
   batteryProtectEnabled = s.batteryProtect !== false; // default true (on)
   $('batteryProtectCheckbox').checked = batteryProtectEnabled;
   forceSleepEnabled = s.forceSleep === true; // default off
@@ -1328,7 +1366,10 @@ window.mca.status().then(s => {
 // Re-poll the power source so the warning appears/clears when the charger
 // is plugged or unplugged mid-session.
 setInterval(() => {
-  window.mca.status().then(showBatteryWarning).catch(() => {});
+  window.mca.status().then(s => {
+    showBatteryWarning(s);
+    renderLpmStatus(s);
+  }).catch(() => {});
 }, 30000);
 </script>
 </body>

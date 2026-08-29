@@ -361,35 +361,9 @@ async function getLowPowerStatus() {
   }
 }
 
-async function applyLowPowerMode(enabled) {
-  const cfg = loadConfig()
-  if (enabled) {
-    // Save current state before turning on
-    if (cfg.savedLowPowerMode === undefined) {
-      cfg.savedLowPowerMode = await getLowPowerStatus()
-    }
-    await sendHelper('LOWPOWER_ON')
-    cfg.lowPowerModeActive = true
-  } else {
-    // Restore to saved state (or 0 if no saved state)
-    const restoreTo = cfg.savedLowPowerMode !== undefined ? cfg.savedLowPowerMode : 0
-    await sendHelper(restoreTo ? 'LOWPOWER_ON' : 'LOWPOWER_OFF')
-    cfg.lowPowerModeActive = false
-    cfg.savedLowPowerMode = undefined
-  }
-  saveConfig(cfg)
-}
-
-function getLowPowerPreference() {
-  return loadConfig().lowPowerModeEnabled === true
-}
-
-function setLowPowerPreference(enabled) {
-  const cfg = loadConfig()
-  cfg.lowPowerModeEnabled = enabled
-  saveConfig(cfg)
-  return enabled
-}
+// LPM is owned by macOS System Settings → Battery. We only read its current
+// state (via getLowPowerStatus, which queries pmset) for display. We never
+// write to it — see the read-only indicator in the renderer.
 
 // ── Timer ──
 let powerMonitor = null
@@ -515,8 +489,6 @@ async function reassertDisableSleep() {
     if (result.status !== 1) {
       logError(`disablesleep was ${result.status} mid-session — re-asserting`)
       await sendHelper('DISABLE')
-      // LPM preference should be re-applied too, since a wake can reset it.
-      if (getLowPowerPreference()) await applyLowPowerMode(true).catch(() => {})
     }
   } catch (e) {
     logError('reassert status check failed:', e.message)
@@ -535,10 +507,9 @@ ipcMain.handle('start', async (_, secs) => {
     startCaffeinate()
     startPowerMonitor()
 
-    // Optionally enable Low Power Mode for cooler clamshell operation
-    if (getLowPowerPreference()) {
-      await applyLowPowerMode(true)
-    }
+    // LPM is owned by macOS System Settings — we don't touch it.
+    // (If the user wants cooler/quieter runs, enable LPM in System Settings →
+    // Battery; our app just displays its current state in the UI.)
 
     // Mark active session so crash recovery can resume or clean up
     saveConfig({ ...loadConfig(), isAwake: true })
@@ -565,11 +536,7 @@ async function restoreSleep(trigger) {
   stopCaffeinate()
   stopPowerMonitor()
 
-  // Restore Low Power Mode if we changed it
-  const cfg = loadConfig()
-  if (cfg.lowPowerModeActive) {
-    await applyLowPowerMode(false).catch(() => {})
-  }
+  // LPM is owned by macOS — nothing to restore.
 
   let err = null
   try {
@@ -654,7 +621,6 @@ ipcMain.handle('status', async () => {
       remaining: forever ? -1 : remaining,
       elapsed: totalDuration - remaining,
       lowPowerMode: lowPowerStatus === 1,
-      lowPowerEnabled: cfg.lowPowerModeEnabled === true,
       batteryProtect: cfg.batteryProtect !== false, // default on
       forceSleep: cfg.forceSleep === true, // default off
       isAwake: cfg.isAwake === true,
@@ -687,30 +653,6 @@ ipcMain.handle('version', () => {
 
 ipcMain.handle('upgrade', () => {
   shell.openExternal(STRIPE_LIFETIME_URL)
-})
-
-ipcMain.handle('get-low-power-preference', () => {
-  return { enabled: getLowPowerPreference() }
-})
-
-ipcMain.handle('set-low-power-preference', async (_, enabled) => {
-  try {
-    setLowPowerPreference(enabled)
-    // Apply immediately if we're currently awake. Also force-off if a stale
-    // session left lowPowerModeActive=true but we're not awake (the previous
-    // session crashed / was force-killed, leaving pmset stuck ON — that's the
-    // "LPM 关不掉" bug).
-    const cfg = loadConfig()
-    if (forever || remaining > 0) {
-      await applyLowPowerMode(enabled)
-    } else if (cfg.lowPowerModeActive && !enabled) {
-      logError('LPM stuck-on from previous session — force-off')
-      await applyLowPowerMode(false).catch(() => {})
-    }
-    return { ok: true, enabled }
-  } catch (e) {
-    return { ok: false, error: e.message }
-  }
 })
 
 ipcMain.handle('set-battery-protect', async (_, enabled) => {
@@ -754,25 +696,6 @@ ipcMain.handle('activate-license', async (_, licenseKey) => {
 })
 
 // ── Unified cleanup ──
-async function doCleanup() {
-  logError('Running cleanup before quit')
-  stopCaffeinate()
-  stopPowerMonitor()
-  clearInterval(restoreTimer)
-
-  const cfg = loadConfig()
-  if (cfg.lowPowerModeActive) {
-    await applyLowPowerMode(false).catch(() => {})
-  }
-
-  try {
-    await sendHelper('ENABLE')
-    saveConfig({ ...loadConfig(), isAwake: false })
-  } catch (e) {
-    logError('Failed to re-enable sleep during cleanup:', e.message)
-  }
-}
-
 // ── Unified cleanup ──
 async function doCleanup() {
   logError('Running cleanup before quit')
@@ -780,10 +703,7 @@ async function doCleanup() {
   stopPowerMonitor()
   clearInterval(restoreTimer)
 
-  const cfg = loadConfig()
-  if (cfg.lowPowerModeActive) {
-    await applyLowPowerMode(false).catch(() => {})
-  }
+  // LPM is owned by macOS — nothing to restore.
 
   try {
     await sendHelper('ENABLE')
@@ -1043,7 +963,7 @@ app.whenReady().then(async () => {
       }
       startCaffeinate()
       startPowerMonitor()
-      if (cfg.lowPowerModeEnabled) await applyLowPowerMode(true).catch(() => {})
+      // LPM is owned by macOS — don't touch it on session resume.
       updateTrayMenu()
       logError('Resumed previous awake session')
     } else if (sleepDisabled) {

@@ -8,8 +8,6 @@ contextBridge.exposeInMainWorld('mca', {
   version: () => ipcRenderer.invoke('version'),
   upgrade: () => ipcRenderer.invoke('upgrade'),
   activateLicense: (key) => ipcRenderer.invoke('activate-license', key),
-  getLowPowerPreference: () => ipcRenderer.invoke('get-low-power-preference'),
-  setLowPowerPreference: (enabled) => ipcRenderer.invoke('set-low-power-preference', enabled),
   setBatteryProtect: (enabled) => ipcRenderer.invoke('set-battery-protect', enabled),
   setForceSleep: (enabled) => ipcRenderer.invoke('set-force-sleep', enabled),
   nuclear: (mode) => ipcRenderer.invoke('nuclear', mode),
