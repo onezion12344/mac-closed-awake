@@ -799,6 +799,7 @@
     <h2 id="nuclearTitle">Nuclear Restart</h2>
     <p id="nuclearDesc">This will quit <b>every</b> open app (force-quitting any that won't close), then restart the computer. Unsaved work will be lost.</p>
     <button class="overlay-btn-nuke" onclick="nuclear()">&#9762; &nbsp;Yes, kill everything &amp; restart</button>
+    <div style="font-size:10px;color:rgba(245,238,218,0.35);margin-top:2px">The first time, macOS asks for your password once — then Nuclear never asks again.</div>
     <div>
       <a href="#" onclick="closeNuclear()" style="font-size:11px;color:rgba(245,238,218,0.4);text-decoration:none">Cancel</a>
     </div>
@@ -869,9 +870,9 @@
         <div class="lpm-knob"></div>
       </div>
       <div class="lpm-info">
-        <div class="lpm-label">SoC 低频模式 (Low Power Mode)</div>
-        <div class="lpm-desc">= macOS 系统设置里的『低电量模式』,CPU/GPU 降频以降低发热</div>
-        <div class="lpm-hint">去 <span class="lpm-system-link">系统设置 → 电池</span> 开关 · 实时跟随系统</div>
+        <div class="lpm-label">Low Power Mode</div>
+        <div class="lpm-desc">Same switch as System Settings → Battery — throttles CPU/GPU to cut heat</div>
+        <div class="lpm-hint">Toggle it in <span class="lpm-system-link">System Settings → Battery</span> · mirrors live state</div>
       </div>
       <div class="lpm-status-pill" id="lpmStatusPill" data-on="false">OFF</div>
     </div>
@@ -892,6 +893,24 @@
         <div class="lpm-label">Force sleep at ≤2% <span class="pro-tag" data-pro-lock>🔒 PRO</span></div>
       </div>
       <div class="lpm-desc">Sleep immediately, even with the lid open</div>
+    </label>
+
+    <label class="lpm-row" id="sleepGraceRow" onclick="toggleSleepGrace(event)">
+      <input type="checkbox" id="sleepGraceCheckbox">
+      <div class="lpm-toggle"></div>
+      <div>
+        <div class="lpm-label">Warn before critical sleep</div>
+      </div>
+      <div class="lpm-desc">60s notice at ≤2% to plug in first</div>
+    </label>
+
+    <label class="lpm-row" id="restoreWindowRow" onclick="toggleRestoreWindow(event)">
+      <input type="checkbox" id="restoreWindowCheckbox">
+      <div class="lpm-toggle"></div>
+      <div>
+        <div class="lpm-label">Restore window size &amp; position</div>
+      </div>
+      <div class="lpm-desc">Reopen where &amp; how you left it</div>
     </label>
 
     <div id="batteryWarn" style="display:none;width:100%;margin-bottom:16px;padding:10px 14px;border-radius:12px;background:rgba(232,147,90,0.10);border:1px solid rgba(232,147,90,0.30);font-size:11px;line-height:1.5;color:#e8935a"></div>
@@ -1055,6 +1074,26 @@ async function toggleForceSleep(e) {
   }
 }
 
+// Free (non-Pro) safety behavior: whether a 60s warning precedes critical sleep.
+async function toggleSleepGrace(e) {
+  if (e) e.preventDefault()
+  const checkbox = $('sleepGraceCheckbox')
+  const want = !checkbox.checked
+  const r = await window.mca.setBatteryGrace(want)
+  if (r.ok) checkbox.checked = r.enabled
+  else checkbox.checked = !want
+}
+
+// Free QoL option: remember window size/position across launches.
+async function toggleRestoreWindow(e) {
+  if (e) e.preventDefault()
+  const checkbox = $('restoreWindowCheckbox')
+  const want = !checkbox.checked
+  const r = await window.mca.setRestoreWindow(want)
+  if (r.ok) checkbox.checked = r.enabled
+  else checkbox.checked = !want
+}
+
 async function start(secs) {
   // Check pro for >2h and forever
   if (!isPro && (secs > 7200 || secs === 0)) {
@@ -1156,9 +1195,25 @@ function closeNuclear() {
 async function nuclear() {
   const mode = $('nuclearOverlay').dataset.mode;
   const btn = document.querySelector('#nuclearOverlay .overlay-btn-nuke');
+  closeNuclear();
+
+  // First use: macOS asks for the admin password once so Nuclear can shut
+  // down / restart without prompting ever again. Do this BEFORE the countdown
+  // so the prompt isn't buried at the end. If the user cancels, abort.
+  const ready = await window.mca.nuclearReady();
+  if (!ready.ready) {
+    btn.textContent = 'One-time password…';
+    const inst = await window.mca.ensureNuclearSudo();
+    if (!inst || !inst.ok) {
+      $('statusText').textContent = 'Nuclear cancelled';
+      btn.textContent = '☢  Yes, kill everything';
+      btn.disabled = false;
+      return;
+    }
+  }
+
   btn.textContent = 'Nuking...';
   btn.disabled = true;
-  closeNuclear();
   if (eggEnabled) {
     await runCountdown();
   }
@@ -1323,6 +1378,8 @@ window.mca.status().then(s => {
   $('batteryProtectCheckbox').checked = batteryProtectEnabled;
   forceSleepEnabled = s.forceSleep === true; // default off
   $('forceSleepCheckbox').checked = forceSleepEnabled;
+  $('sleepGraceCheckbox').checked = s.sleepGrace !== false; // default on
+  $('restoreWindowCheckbox').checked = s.windowRestored !== false; // default on
   eggEnabled = localStorage.getItem('mca.egg') === '1';
   $('eggCheckbox').checked = eggEnabled;
   showBatteryWarning(s);

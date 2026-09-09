@@ -1,6 +1,6 @@
 {
   "name": "mac-closed-awake",
-  "version": "1.6.3",
+  "version": "1.7.0",
   "description": "Your Mac stays awake — lid closed or not. No sleep, ever.",
   "main": "main.js",
   "author": "Harry Huang <onezion12344@gmail.com>",
@@ -20,7 +20,10 @@
     "productName": "MacClosedAwake",
     "mac": {
       "category": "public.app-category.utilities",
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "icon.icns",
       "entitlements": "entitlements.mac.plist",
       "hardenedRuntime": true

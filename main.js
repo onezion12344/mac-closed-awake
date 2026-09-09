@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, shell, dialog, nativeImage } = require('electron')
+const { app, BrowserWindow, Tray, Menu, ipcMain, shell, dialog, nativeImage, Notification } = require('electron')
 const { exec, spawn, execSync } = require('child_process')
 const path = require('path')
 const fs = require('fs')
@@ -24,6 +24,9 @@ let forever = false
 let lidCloseCount = 0
 // Track the Tray template so we can replace it on mode changes (light/dark).
 let trayTemplate = null
+// Critical-battery grace: the 60s countdown between "≤2%" and the actual
+// sleep/restore, so the user has time to plug in the charger.
+let criticalGraceTimer = null
 
 const HELPER_SOCKET = '/tmp/com.mca.helper.sock'
 const HELPER_PLIST = path.join(app.getPath('home'), 'Library/LaunchAgents/com.mca.helper.v2.plist')
@@ -34,6 +37,10 @@ const STORE_PATH = path.join(app.getPath('userData'), 'config.json')
 const CAFFEINE_PID_FILE = '/tmp/mca.caffeinate.pid'
 const LOWPOWER_PID_FILE = '/tmp/mca.lowpower.pid'
 const HELPER_VERSION = '2.1.0'
+// Where we install the one-time passwordless rule for shutdown/restart.
+// The app-owned pmset rule already lives in /etc/sudoers.d/pmset; we add a
+// separate file so we never touch (or clobber) the existing one.
+const SHUTDOWN_SUDOERS = '/etc/sudoers.d/mac-closed-awake-shutdown'
 
 // ── Config store ──
 function loadConfig() {
@@ -531,6 +538,12 @@ async function restoreSleep(trigger) {
   clearInterval(restoreTimer)
   restoreTimer = null
   forever = false
+  // Cancel any pending critical-battery grace so a manual stop doesn't get
+  // followed by a surprise sleep a minute later.
+  if (criticalGraceTimer) {
+    clearTimeout(criticalGraceTimer)
+    criticalGraceTimer = null
+  }
 
   // Stop all monitoring processes
   stopCaffeinate()
@@ -557,6 +570,13 @@ async function restoreSleep(trigger) {
 
 // Auto-restore when battery is critically low (≤2%) so macOS can shut down
 // cleanly and save state instead of force-powering off mid-write.
+//
+// Rather than sleeping the instant we cross 2% — which gives the user no
+// chance to plug in — we first raise a native notification and start a 60s
+// grace window. If the charger is connected during that window we cancel and
+// keep running; otherwise we restore sleep (and force sleep if enabled).
+// The grace window is a toggle; with it off, we fall back to the old
+// immediate restore-at-2% behavior.
 async function checkCriticalBattery() {
   if (!forever && remaining <= 0) return
   // Respect the user's toggle: default on, but they can disable auto-restore.
@@ -568,24 +588,71 @@ async function checkCriticalBattery() {
     logError('battery check failed:', e.message)
     return
   }
-  if (!power.onAC && power.percent !== null && power.percent <= 2) {
-    // Re-enable sleep so the Mac can sleep on its own: if the lid is closed,
-    // macOS sleeps immediately and hibernates (RAM → disk) while there's still
-    // charge; if the lid is open, we don't force sleep.
-    logError(`Battery critical (${power.percent}%) — restoring sleep to preserve session`)
-    await restoreSleep('critical battery')
 
-    // Optional: force immediate sleep even with the lid open, so the session is
-    // preserved before the battery dies. Off by default — restoring sleep already
-    // covers the lid-closed case.
-    if (loadConfig().forceSleep === true) {
-      logError('forceSleep enabled — forcing immediate sleep')
-      try {
-        await sendHelper('SLEEPNOW')
-      } catch (e) {
-        logError('force sleep failed:', e.message)
-      }
+  const critical = !power.onAC && power.percent !== null && power.percent <= 2
+
+  // If we're mid-grace and the user plugged in (or battery recovered), cancel.
+  if (criticalGraceTimer && (power.onAC || power.percent > 2)) {
+    clearTimeout(criticalGraceTimer)
+    criticalGraceTimer = null
+    notify('Power restored', 'Charger detected — sleep keep-awake continues.')
+    logError('Critical-battery grace cancelled — power restored')
+    return
+  }
+
+  if (!critical) return
+  // Already counting down; the timer will fire the restore.
+  if (criticalGraceTimer) return
+
+  const graceOn = loadConfig().sleepGrace !== false // default on
+
+  if (!graceOn) {
+    // Legacy: restore immediately.
+    await doCriticalRestore()
+    return
+  }
+
+  notify(
+    '🔋 Battery critical — sleeping in 1 minute',
+    `Only ${power.percent}% left. Plug in the charger within 60 seconds to keep your Mac awake.`
+  )
+  logError(`Battery critical (${power.percent}%) — starting 60s grace before restore`)
+  criticalGraceTimer = setTimeout(async () => {
+    criticalGraceTimer = null
+    const p = await getPowerSource().catch(() => null)
+    if (p && (p.onAC || (p.percent !== null && p.percent > 2))) {
+      notify('Power restored', 'Charger detected in time — staying awake.')
+      logError('Grace expired but power restored — staying awake')
+      return
     }
+    await doCriticalRestore()
+  }, 60000)
+}
+
+// Actually restore sleep at critical battery, plus optional force sleep.
+async function doCriticalRestore() {
+  logError('Battery critical — restoring sleep to preserve session')
+  await restoreSleep('critical battery')
+  // Optional: force immediate sleep even with the lid open, so the session is
+  // preserved before the battery dies. Off by default — restoring sleep already
+  // covers the lid-closed case.
+  if (loadConfig().forceSleep === true) {
+    logError('forceSleep enabled — forcing immediate sleep')
+    try {
+      await sendHelper('SLEEPNOW')
+    } catch (e) {
+      logError('force sleep failed:', e.message)
+    }
+  }
+}
+
+// Fire a system notification (best-effort; no-op if not supported/granted).
+function notify(title, body) {
+  try {
+    if (!Notification.isSupported()) return
+    new Notification({ title, body, silent: false }).show()
+  } catch (e) {
+    logError('notify failed:', e.message)
   }
 }
 
@@ -622,11 +689,14 @@ ipcMain.handle('status', async () => {
       elapsed: totalDuration - remaining,
       lowPowerMode: lowPowerStatus === 1,
       batteryProtect: cfg.batteryProtect !== false, // default on
+      sleepGrace: cfg.sleepGrace !== false, // default on
       forceSleep: cfg.forceSleep === true, // default off
       isAwake: cfg.isAwake === true,
       onAC: power.onAC,
       batteryPercent: power.percent,
-      storage
+      storage,
+      nuclearReady: cfg.nuclearSudoInstalled === true,
+      windowRestored: cfg.restoreWindow !== false, // default on
     }
   } catch {
     return { helperInstalled: false, disabled: false, remaining: 0 }
@@ -675,6 +745,46 @@ ipcMain.handle('set-force-sleep', async (_, enabled) => {
   } catch (e) {
     return { ok: false, error: e.message }
   }
+})
+
+ipcMain.handle('set-battery-grace', async (_, enabled) => {
+  try {
+    const cfg = loadConfig()
+    cfg.sleepGrace = enabled === true
+    saveConfig(cfg)
+    return { ok: true, enabled: cfg.sleepGrace }
+  } catch (e) {
+    return { ok: false, error: e.message }
+  }
+})
+
+ipcMain.handle('set-restore-window', async (_, enabled) => {
+  try {
+    const cfg = loadConfig()
+    cfg.restoreWindow = enabled === true
+    if (!cfg.restoreWindow) delete cfg.windowBounds
+    saveConfig(cfg)
+    return { ok: true, enabled: cfg.restoreWindow }
+  } catch (e) {
+    return { ok: false, error: e.message }
+  }
+})
+
+// Let the renderer know whether Nuclear still needs its one-time password,
+// so it can word the confirm dialog accordingly (first press vs. silent).
+ipcMain.handle('nuclear-ready', async () => {
+  if (loadConfig().nuclearSudoInstalled === true && await probeNuclearSudo()) return { ready: true }
+  return { ready: await probeNuclearSudo() }
+})
+
+// Pre-flight: make sure passwordless shutdown is installed BEFORE the nuclear
+// sequence runs, so the one-time admin prompt surfaces first (not after the
+// countdown). The nuclear handler calls this too; this lets the renderer show
+// the prompt while its own confirm dialog is still up.
+ipcMain.handle('ensure-nuclear-sudo', async () => {
+  if (await probeNuclearSudo()) return { ok: true }
+  const inst = await installNuclearSudo()
+  return inst
 })
 
 ipcMain.handle('activate-license', async (_, licenseKey) => {
@@ -807,14 +917,53 @@ function execScriptFile(file) {
   })
 }
 
+// Passwordless shutdown is installed once (a single admin prompt) so every
+// later Nuclear press runs silently. Detect without executing anything:
+// `sudo -n -l /sbin/shutdown` exits 0 iff the rule is already in place.
+function probeNuclearSudo() {
+  return new Promise((resolve) => {
+    exec('sudo -n -l /sbin/shutdown', (err) => resolve(!err))
+  })
+}
+
+// One-time setup: ask for the admin password ONCE, then drop a NOPASSWD rule
+// for /sbin/shutdown into its own sudoers.d file. visudo validates before we
+// install so a malformed line can never brick sudo.
+function installNuclearSudo() {
+  const user = require('os').userInfo().username
+  const line = `${user} ALL=(ALL) NOPASSWD: /sbin/shutdown`
+  // Write to a temp file, validate, then move into place — never a partial edit.
+  const cmd =
+    `printf '%s\\n' '${line}' > /tmp/mca-shutdown.sudo && ` +
+    `chmod 0440 /tmp/mca-shutdown.sudo && chown root:wheel /tmp/mca-shutdown.sudo && ` +
+    `visudo -cf /tmp/mca-shutdown.sudo && ` +
+    `install -m 0440 -o root -g wheel /tmp/mca-shutdown.sudo ${SHUTDOWN_SUDOERS}`
+  return new Promise((resolve) => {
+    exec(
+      `osascript -e ${JSON.stringify(`do shell script ${JSON.stringify(cmd)} with administrator privileges`)}`,
+      (err) => {
+        if (err) {
+          logError('installNuclearSudo failed:', err.message)
+          resolve({ ok: false, error: err.message })
+        } else {
+          saveConfig({ ...loadConfig(), nuclearSudoInstalled: true })
+          resolve({ ok: true })
+        }
+      }
+    )
+  })
+}
+
 // mode: 'shutdown' → power off; 'restart' → reboot
 async function runNuclear(mode) {
-  const finalCmd = mode === 'shutdown' ? 'shutdown -h now' : 'shutdown -r now'
+  // The final command runs via passwordless sudo (installed once by
+  // ensureNuclearReady). `-h` halts, `-r` reboots; `now` is immediate.
+  const finalCmd = mode === 'shutdown' ? 'sudo -n /sbin/shutdown -h now' : 'sudo -n /sbin/shutdown -r now'
   // Phase 1 — graceful/force quit of every user GUI app, run as the user
   // (killing our own processes needs no privileges). We exclude system
   // processes by binary path prefix and our own app; everything else is a
   // user app and gets quit then force-quit. The shut down / reboot is issued
-  // separately via the privileged path.
+  // separately via passwordless sudo.
   const script = `#!/bin/bash
 APP_PIDS=$(osascript -e 'tell application "System Events" to get unix id of every application process whose background only is false' 2>/dev/null || true)
 # Graceful quit first (SIGTERM)
@@ -836,8 +985,8 @@ for pid in $APP_PIDS; do
     kill -9 "$pid" 2>/dev/null || true
   fi
 done
-# Trigger shutdown/reboot via the normal privileged path.
-osascript -e 'do shell script "${finalCmd}" with administrator privileges'
+# Trigger shutdown/reboot via passwordless sudo (one-time rule, no prompt).
+${finalCmd}
 `
   const scriptPath = '/tmp/mca-nuclear.sh'
   fs.writeFileSync(scriptPath, script, { mode: 0o755 })
@@ -847,6 +996,14 @@ osascript -e 'do shell script "${finalCmd}" with administrator privileges'
 
 ipcMain.handle('nuclear', async (_, mode) => {
   try {
+    // Make sure passwordless shutdown is set up — shows the admin prompt the
+    // very first time only. If the user cancels, abort cleanly (don't nuke).
+    if (!(await probeNuclearSudo())) {
+      const inst = await installNuclearSudo()
+      if (!inst.ok) {
+        return { ok: false, error: 'Passwordless shutdown not enabled — try again and enter your password once.' }
+      }
+    }
     const action = mode === 'shutdown' ? 'shutting down' : 'rebooting'
     logError(`NUCLEAR: quitting all apps and ${action}`)
     const result = await runNuclear(mode)
@@ -889,9 +1046,14 @@ function fmtTime(s) {
 
 // ── Window ──
 function createWindow() {
+  const cfg = loadConfig()
+  const bounds = (cfg.restoreWindow !== false && cfg.windowBounds) ? cfg.windowBounds : null
+
   win = new BrowserWindow({
-    width: 740,
-    height: 740,
+    width: bounds ? bounds.width : 740,
+    height: bounds ? bounds.height : 740,
+    x: bounds ? bounds.x : undefined,
+    y: bounds ? bounds.y : undefined,
     resizable: true,
     maximizable: true,
     minWidth: 600,
@@ -910,6 +1072,26 @@ function createWindow() {
     },
   })
   win.loadFile('index.html')
+
+  // Persist size/position whenever it settles, but only while the "restore
+  // window" preference is on. Debounced so a drag doesn't hammer the config.
+  let saveTimer = null
+  const scheduleSave = () => {
+    if (loadConfig().restoreWindow === false) return
+    clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => {
+      if (!win || win.isDestroyed() || win.isMaximized()) return
+      try {
+        const b = win.getBounds()
+        const c = loadConfig()
+        c.windowBounds = b
+        saveConfig(c)
+      } catch {}
+    }, 400)
+  }
+  win.on('resize', scheduleSave)
+  win.on('move', scheduleSave)
+
   win.on('close', (e) => {
     if (tray) { e.preventDefault(); win.hide() }
   })
