@@ -108,10 +108,16 @@
     margin-bottom: 4px;
   }
   .logo-icon {
-    width: 32px; height: 32px;
-    border-radius: 8px;
+    width: 34px; height: 34px;
+    border-radius: 9px;
     display: block;
+    object-fit: cover;
     box-shadow: 0 4px 15px rgba(232, 147, 90, 0.35);
+    transition: transform 0.4s var(--ease-spring), box-shadow 0.4s ease;
+  }
+  .logo:hover .logo-icon {
+    transform: translateY(-1px) scale(1.04);
+    box-shadow: 0 6px 20px rgba(240, 192, 74, 0.45);
   }
   .logo-text {
     font-size: 22px;
@@ -149,7 +155,10 @@
     stroke-linecap: round;
     stroke-dasharray: 502;
     stroke-dashoffset: 502;
-    transition: stroke-dashoffset 1s linear;
+    /* Hidden at 0%: a round cap on a zero-length arc still paints a dot at
+       12 o'clock, which read as "almost started". setRing() turns it on. */
+    opacity: 0;
+    transition: stroke-dashoffset 1s linear, opacity 0.25s ease;
     filter: drop-shadow(0 0 8px rgba(232, 147, 90, 0.5));
   }
   .timer-center {
@@ -191,6 +200,9 @@
     text-transform: uppercase;
     letter-spacing: 1px;
     color: var(--muted);
+    /* The label changes with the session, so keep it on one line: wrapping
+       "left" onto its own row read like a layout bug. */
+    white-space: nowrap;
     margin-bottom: 28px;
     transition: all 0.3s ease;
   }
@@ -938,6 +950,173 @@
   /* Fade transitions */
   .fade-in { animation: fadeIn 0.3s ease; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── Motion & polish ───────────────────────────────────────────────
+     Everything here is decorative: no state waits on an animation, and the
+     prefers-reduced-motion block at the end switches it all off. */
+
+  :root {
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Entrance: the two columns rise in sequence. --i is assigned once at boot. */
+  .col-left > *, .col-right > * {
+    animation: rise 0.5s var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 25ms);
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Timer ring: a slow breath while a session is live, so a glance tells you
+     the app is holding the machine awake. */
+  .timer-wrap.running .timer-ring-progress {
+    animation: ringBreath 4s ease-in-out infinite;
+  }
+  @keyframes ringBreath {
+    0%, 100% { filter: drop-shadow(0 0 6px rgba(232, 147, 90, 0.35)); }
+    50%      { filter: drop-shadow(0 0 16px rgba(240, 192, 74, 0.60)); }
+  }
+  .timer-wrap.running .timer-value { animation: timerGlow 4s ease-in-out infinite; }
+  @keyframes timerGlow {
+    0%, 100% { text-shadow: 0 0 0 rgba(240, 192, 74, 0); }
+    50%      { text-shadow: 0 0 18px rgba(240, 192, 74, 0.22); }
+  }
+
+  /* Status pill pops the moment it turns on. */
+  .status-pill.active { animation: pillPop 0.45s var(--ease-spring); }
+  @keyframes pillPop {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.06); }
+    100% { transform: scale(1); }
+  }
+
+  /* Press and focus feel the same everywhere. */
+  .app button { position: relative; }
+  .app button:active:not(:disabled) { transform: scale(0.98); }
+  .app button:focus-visible,
+  .app a:focus-visible,
+  .app input:focus-visible {
+    outline: 2px solid rgba(240, 192, 74, 0.75);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+
+  /* Presets: lift instead of sliding sideways, and a slow sheen on the chosen
+     one so the active duration reads at a glance. */
+  .preset:hover:not(:disabled) { transform: translateY(-2px); }
+  .preset:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+  .preset.selected::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.07) 50%, transparent 70%);
+    background-size: 220% 100%;
+    animation: sheen 3.2s linear infinite;
+    pointer-events: none;
+  }
+  @keyframes sheen {
+    from { background-position: 180% 0; }
+    to   { background-position: -80% 0; }
+  }
+
+  /* Forever button: a light sweep across the surface on hover. */
+  .forever-btn { overflow: hidden; }
+  .forever-btn::before {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    left: -60%;
+    width: 40%;
+    background: linear-gradient(100deg, transparent, rgba(240, 192, 74, 0.18), transparent);
+    transform: skewX(-12deg);
+    transition: left 0.6s var(--ease-out);
+    pointer-events: none;
+  }
+  .forever-btn:hover::before { left: 120%; }
+
+  /* Overlays fade and scale instead of snapping on. They stay in the tree so
+     the exit can animate too; visibility keeps them inert while hidden. */
+  .overlay {
+    display: flex;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.22s ease, visibility 0s linear 0.22s;
+  }
+  .overlay.show {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity 0.22s ease, visibility 0s;
+  }
+  .overlay .overlay-card {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+    transition: transform 0.3s var(--ease-spring), opacity 0.25s ease;
+  }
+  .overlay.show .overlay-card {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  /* Memory panel: hover lift only — the 10s repaint must not re-animate rows. */
+  .mem-row { transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s var(--ease-out); }
+  .mem-row:hover { transform: translateX(2px); }
+  .mem-gauge-fill { transition: width 0.6s var(--ease-out), background 0.3s ease; }
+
+  /* Scrollbars that belong to the shell. */
+  body::-webkit-scrollbar,
+  .mem-list::-webkit-scrollbar,
+  .cleanup-list::-webkit-scrollbar { width: 8px; }
+  body::-webkit-scrollbar-track,
+  .mem-list::-webkit-scrollbar-track,
+  .cleanup-list::-webkit-scrollbar-track { background: transparent; }
+  body::-webkit-scrollbar-thumb,
+  .mem-list::-webkit-scrollbar-thumb,
+  .cleanup-list::-webkit-scrollbar-thumb {
+    background: rgba(138, 154, 176, 0.28);
+    border-radius: 4px;
+  }
+  body::-webkit-scrollbar-thumb:hover,
+  .mem-list::-webkit-scrollbar-thumb:hover,
+  .cleanup-list::-webkit-scrollbar-thumb:hover { background: rgba(240, 192, 74, 0.45); }
+
+  ::selection { background: rgba(240, 192, 74, 0.28); color: var(--cream); }
+
+  .lpm-row:active { transform: scale(0.995); }
+
+  /* The right column is much taller than the left, which left a dead gap under
+     the status pill. Auto margins let the ring settle into that space instead,
+     and collapse to 0 when the window is short. */
+  .timer-wrap { margin-top: auto; }
+  .status-pill { margin-bottom: auto; }
+
+  /* Slightly tighter vertical rhythm so the controls below the fold are one
+     small scroll away rather than a long one. */
+  .tagline { margin-bottom: 24px; }
+  .lpm-row { margin-bottom: 12px; padding: 9px 13px; }
+  .presets { margin-bottom: 10px; }
+  .forever-btn { margin-bottom: 12px; }
+
+  /* Warning strip: give the icon its own column so the text stops hugging it. */
+  #batteryWarn { display: flex; gap: 8px; align-items: flex-start; }
+  #batteryWarn:empty { display: none; }
+
+  .footer a { transition: color 0.2s ease; }
+  .footer a:hover { color: var(--gold); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1060,7 +1239,7 @@
     </div>
     <div class="tagline">Lid closed. Still awake.</div>
 
-    <div class="timer-wrap">
+    <div class="timer-wrap" id="timerWrap">
       <svg class="timer-ring" viewBox="0 0 180 180">
         <defs>
           <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1072,7 +1251,7 @@
         <circle class="timer-ring-progress" id="timerRing" cx="90" cy="90" r="80"/>
       </svg>
       <div class="timer-center">
-        <div class="timer-value" id="timer">--:--</div>
+        <div class="timer-value" id="timer">00:00</div>
         <div class="timer-label" id="timerLabel">ready</div>
       </div>
     </div>
@@ -1205,8 +1384,17 @@ let forceSleepEnabled = false;
 const CIRC = 2 * Math.PI * 80; // ~502
 const ring = $('timerRing');
 
+// Entrance stagger: assign the delay index once, CSS does the rest. Re-running
+// this on every render would restart the animation, so it happens only here.
+[...document.querySelectorAll('.col-left > *, .col-right > *')]
+  .forEach((el, i) => el.style.setProperty('--i', i));
+
 function setRing(pct) {
-  ring.style.strokeDashoffset = CIRC - (CIRC * Math.min(pct, 1));
+  const clamped = Math.min(Math.max(pct, 0), 1);
+  ring.style.strokeDashoffset = CIRC - (CIRC * clamped);
+  // A zero-length round-capped arc still paints a dot at 12 o'clock; hide it
+  // so an idle timer looks empty rather than "almost started".
+  ring.style.opacity = clamped === 0 ? '0' : '1';
 }
 
 function fmt(s) {
@@ -1330,8 +1518,9 @@ async function start(secs) {
   if (r.ok) {
     running = true;
     setActive(secs);
+    $('timerWrap').classList.add('running');
     $('statusPill').classList.add('active');
-    $('statusText').textContent = forever ? 'Sleep disabled — forever' : 'Sleep disabled';
+    $('statusText').textContent = forever ? 'Awake · forever' : 'Awake';
     $('timerLabel').textContent = forever ? 'forever' : 'remaining';
     if (!forever) {
       $('timer').textContent = fmt(secs);
@@ -1351,9 +1540,10 @@ async function stop() {
   if (r.ok) {
     running = false;
     forever = false;
-    $('timer').textContent = '--:--';
+    $('timer').textContent = '00:00';
     $('timerLabel').textContent = 'ready';
     setRing(0);
+    $('timerWrap').classList.remove('running');
     $('statusPill').classList.remove('active');
     $('statusText').textContent = 'Sleep restored';
     document.querySelectorAll('.preset').forEach(b => b.classList.remove('selected'));
@@ -1459,52 +1649,92 @@ function toggleEgg(e) {
   localStorage.setItem('mca.egg', eggEnabled ? '1' : '0')
 }
 
+// Results stream in one directory at a time, so the list fills while the slow
+// paths are still being measured instead of sitting on "Scanning…".
+let cleanupOpen = false
+let cleanupItems = []
+
+function cleanupRow(it) {
+  const row = document.createElement('div')
+  row.className = 'cleanup-item'
+
+  const left = document.createElement('div')
+  left.style.cssText = 'flex:1;min-width:0'
+  const name = document.createElement('div')
+  name.className = 'cleanup-item-name'
+  name.textContent = it.name
+  const p = document.createElement('div')
+  p.style.cssText = 'font-family:var(--font-mono);font-size:10px;color:var(--muted-dim);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'
+  p.textContent = it.path
+  left.append(name, p)
+
+  const right = document.createElement('div')
+  right.style.cssText = 'display:flex;align-items:center;gap:4px'
+  const size = document.createElement('div')
+  size.className = 'cleanup-item-size'
+  size.textContent = it.size
+  const open = document.createElement('button')
+  open.className = 'cleanup-open'
+  open.textContent = 'Open'
+  open.addEventListener('click', (e) => {
+    e.preventDefault()
+    window.mca.openPath(it.path)
+  })
+  right.append(size, open)
+
+  row.append(left, right)
+  return row
+}
+
+function renderCleanup() {
+  const list = $('cleanupList')
+  if (!cleanupItems.length) {
+    list.innerHTML = '<div class="cleanup-empty">Scanning…</div>'
+    $('cleanupTotal').textContent = ''
+    return
+  }
+  const sorted = [...cleanupItems].sort((a, b) => b.kb - a.kb)
+  list.replaceChildren(...sorted.map(cleanupRow))
+  const totalMB = sorted.reduce((sum, it) => sum + it.kb, 0) / 1024
+  $('cleanupTotal').textContent = totalMB >= 1024
+    ? `~${(totalMB / 1024).toFixed(1)} GB across ${sorted.length} locations`
+    : `~${totalMB.toFixed(0)} MB across ${sorted.length} locations`
+}
+
 function openCleanup() {
+  cleanupOpen = true
+  cleanupItems = []
   $('cleanupOverlay').classList.add('show')
   $('cleanupList').innerHTML = '<div class="cleanup-empty">Scanning…</div>'
   $('cleanupTotal').textContent = ''
   window.mca.getCleanupSuggestions().then(r => {
-    const list = $('cleanupList')
-    if (!r.ok || !r.items || r.items.length === 0) {
-      list.innerHTML = '<div class="cleanup-empty">No large directories found.</div>'
+    if (!cleanupOpen) return
+    if (!r || !r.ok) {
+      $('cleanupList').innerHTML = '<div class="cleanup-empty">Scan failed.</div>'
       return
     }
-    const toMB = s => {
-      const m = s.match(/^([\d.]+)(B|K|M|G|T)$/i)
-      if (!m) return 0
-      const n = parseFloat(m[1]); const u = m[2].toUpperCase()
-      return n * ({ B: 1e-6, K: 1e-3, M: 1, G: 1e3, T: 1e6 }[u] || 0)
+    cleanupItems = r.items || []
+    if (!cleanupItems.length) {
+      $('cleanupList').innerHTML = '<div class="cleanup-empty">No large directories found.</div>'
+      return
     }
-    let totalMB = 0
-    list.innerHTML = ''
-    r.items.forEach(it => {
-      const mb = toMB(it.size); totalMB += mb
-      const row = document.createElement('div')
-      row.className = 'cleanup-item'
-      row.innerHTML = `
-        <div style="flex:1;min-width:0">
-          <div class="cleanup-item-name">${it.name}</div>
-          <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted-dim);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.path}</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:4px">
-          <div class="cleanup-item-size">${it.size}</div>
-          <button class="cleanup-open" data-path="${it.path}">Open</button>
-        </div>`
-      list.appendChild(row)
-    })
-    list.querySelectorAll('.cleanup-open').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.preventDefault()
-        window.mca.openPath(btn.dataset.path)
-      })
-    })
-    const totalGB = totalMB / 1000
-    $('cleanupTotal').textContent = totalGB >= 1
-      ? `~${totalGB.toFixed(1)} GB across ${r.items.length} locations`
-      : `~${totalMB.toFixed(0)} MB across ${r.items.length} locations`
+    renderCleanup()
+  }).catch(() => {
+    if (cleanupOpen) $('cleanupList').innerHTML = '<div class="cleanup-empty">Scan failed.</div>'
   })
 }
+
+if (window.mca && window.mca.onCleanupItem) {
+  window.mca.onCleanupItem((item) => {
+    if (!cleanupOpen || !item) return
+    if (cleanupItems.some(x => x.path === item.path)) return
+    cleanupItems.push(item)
+    renderCleanup()
+  })
+}
+
 function closeCleanup() {
+  cleanupOpen = false
   $('cleanupOverlay').classList.remove('show')
 }
 
@@ -1641,22 +1871,28 @@ document.addEventListener('click', async (e) => {
   // (`data-thaw=""`), and an empty string is falsy — a Resume click would
   // otherwise take the freeze branch and freeze it a second time.
   const thawing = btn.hasAttribute('data-thaw')
+  const label = btn.textContent
   btn.disabled = true
+  // Freezing a large app can take a moment; say so instead of leaving a dead
+  // button that looks like the click was swallowed.
+  btn.textContent = '…'
   memBusy = true
+  let res = null
   try {
-    const res = thawing ? await window.mca.memThaw(name) : await window.mca.memFreeze(name)
-    if (!res || !res.ok) {
-      btn.disabled = false
-      memBusy = false
-      btn.textContent = '!'
-      setTimeout(loadMemory, 900)
-      return
-    }
+    res = thawing ? await window.mca.memThaw(name) : await window.mca.memFreeze(name)
   } catch (err) {
+    res = null
+  } finally {
     memBusy = false
+  }
+  if (!res || !res.ok) {
+    btn.disabled = false
+    btn.textContent = '!'
+    btn.title = (res && res.error) || 'Could not change this app'
+    // Put the real label back after the error has been visible for a moment.
+    setTimeout(() => { btn.textContent = label; loadMemory() }, 1200)
     return
   }
-  memBusy = false
   // Re-read the kernel's view instead of assuming the signal landed.
   setTimeout(loadMemory, 350)
 })
@@ -1755,9 +1991,10 @@ window.mca.onTick((n) => {
 window.mca.onRestored(() => {
   running = false;
   forever = false;
-  $('timer').textContent = '--:--';
+  $('timer').textContent = '00:00';
   $('timerLabel').textContent = 'ready';
   setRing(0);
+  $('timerWrap').classList.remove('running');
   $('statusPill').classList.remove('active');
   $('statusText').textContent = 'Auto-restored';
   document.querySelectorAll('.preset').forEach(b => b.classList.remove('selected'));
@@ -1800,15 +2037,17 @@ window.mca.status().then(s => {
     $('timer').textContent = fmt(s.remaining);
     $('timerLabel').textContent = 'remaining';
     setRing(s.remaining / totalSecs);
+    $('timerWrap').classList.add('running');
     $('statusPill').classList.add('active');
-    $('statusText').textContent = `Sleep disabled — ${fmt(s.remaining)} left`;
+    $('statusText').textContent = `Awake · ${fmt(s.remaining)} left`;
   } else if (s.disabled) {
     running = true;
     forever = true;
     $('timer').textContent = '∞';
     $('timerLabel').textContent = 'forever';
+    $('timerWrap').classList.add('running');
     $('statusPill').classList.add('active');
-    $('statusText').textContent = 'Sleep disabled — forever';
+    $('statusText').textContent = 'Awake · forever';
     $('foreverBtn').classList.add('active');
   }
   window.mca.isPro().then(p => {

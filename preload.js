@@ -28,4 +28,5 @@ contextBridge.exposeInMainWorld('mca', {
   onProStatus: (fn) => ipcRenderer.on('pro-status', (_, p) => fn(p)),
   onLowPowerStatus: (fn) => ipcRenderer.on('low-power-status', (_, p) => fn(p)),
   onMemRefresh: (fn) => ipcRenderer.on('mem-refresh', () => fn()),
+  onCleanupItem: (fn) => ipcRenderer.on('cleanup-item', (_, item) => fn(item)),
 })

@@ -137,7 +137,7 @@ async function footprintMap() {
 async function slowFootprintMap() {
   try {
     const { stdout } = await execFileAsync('top', ['-l', '1', '-n', '1000', '-stats', 'pid,mem', '-o', 'mem'],
-      { maxBuffer: 32 * 1024 * 1024, timeout: 30000 })
+      { maxBuffer: 32 * 1024 * 1024, timeout: 10000 })
     const map = new Map()
     for (const line of stdout.split('\n')) {
       const m = line.trim().match(/^(\d+)\s+([\d.]+[KMGT]?)\s*$/i)
@@ -314,14 +314,14 @@ function signal(pids, sig) {
   const list = (pids || []).map(Number).filter(p => Number.isInteger(p) && p > 1)
   if (!list.length) return { ok: false, signalled: 0 }
   try {
-    execSync(`kill -${sig} ${list.join(' ')}`, { stdio: 'ignore' })
+    execSync(`kill -${sig} ${list.join(' ')}`, { stdio: 'ignore', timeout: 3000 })
     return { ok: true, signalled: list.length }
   } catch {
     // One pid that exited mid-batch fails the whole kill; retry individually
     // so a dead helper cannot block the app's remaining processes.
     let n = 0
     for (const p of list) {
-      try { execSync(`kill -${sig} ${p}`, { stdio: 'ignore' }); n++ } catch {}
+      try { execSync(`kill -${sig} ${p}`, { stdio: 'ignore', timeout: 3000 }); n++ } catch {}
     }
     return { ok: n > 0, signalled: n }
   }
@@ -331,9 +331,9 @@ function isPauseable(name) {
   return !!name && !NEVER.has(name)
 }
 
-async function freeze(name) {
+async function freeze(name, knownApps) {
   if (!isPauseable(name)) return { ok: false, error: `${name} is protected` }
-  const { apps } = await collect()
+  const apps = knownApps || (await collect()).apps
   const target = apps.find(a => a.name === name)
   if (!target) return { ok: false, error: `${name} is not running` }
   const r = signal(target.pids, 'STOP')
@@ -345,12 +345,12 @@ async function freeze(name) {
   return { ok: true, procs: target.pids.length }
 }
 
-async function thaw(name) {
+async function thaw(name, knownApps) {
   const map = loadFrozen()
   // Prefer live pids; recorded ones may already have been recycled.
   let pids = map[name]?.pids || []
   try {
-    const { apps } = await collect()
+    const apps = knownApps || (await collect()).apps
     const live = apps.find(a => a.name === name)
     if (live && live.pids.length) pids = live.pids
   } catch {}

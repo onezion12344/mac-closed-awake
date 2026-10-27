@@ -1,5 +1,5 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, shell, dialog, nativeImage, Notification, powerMonitor } = require('electron')
-const { exec, spawn, execSync } = require('child_process')
+const { exec, execFile, spawn, execSync } = require('child_process')
 const path = require('path')
 const fs = require('fs')
 const net = require('net')
@@ -888,48 +888,97 @@ function checkStorage() {
 
 // Scan well-known large directories and return their sizes. Read-only — we
 // never delete anything; the user clears them manually with the suggestions.
-function getCleanupSuggestions() {
-  const candidates = [
-    { name: 'WeChat (微信 cache & downloads)', path: '~/Library/Containers/com.tencent.xinWeChat' },
-    { name: 'QQ container', path: '~/Library/Containers/com.tencent.qq' },
-    { name: 'Microsoft Edge', path: '~/Library/Application Support/Microsoft Edge' },
-    { name: 'Notion cache', path: '~/Library/Application Support/Notion' },
-    { name: 'Docker containers', path: '~/Library/Containers/com.docker.docker' },
-    { name: 'Colima VM', path: '~/.colima' },
-    { name: 'Ollama models', path: '~/.ollama' },
-    { name: 'Homebrew cache', path: '~/Library/Caches/Homebrew' },
-    { name: 'pnpm store', path: '~/Library/pnpm' },
-    { name: 'npm cache', path: '~/.npm' },
-    { name: 'pip cache', path: '~/.cache/pip' },
-    { name: 'User Caches', path: '~/Library/Caches' },
-    { name: 'System logs (older)', path: '~/Library/Logs/DiagnosticReports' },
-  ]
-  const out = []
-  for (const c of candidates) {
-    const expanded = c.path.replace(/^~/, require('os').homedir())
-    try {
-      if (!require('fs').existsSync(expanded)) continue
-      const size = require('child_process').execSync(
-        `du -sh "${expanded}" 2>/dev/null | awk '{print $1}'`, { encoding: 'utf8', timeout: 8000 }
-      ).trim()
-      if (!size || size === '0B') continue
-      out.push({ name: c.name, path: expanded, size })
-    } catch {}
-  }
-  // Sort by size (best-effort: M > K, B as smallest)
-  const toMB = s => {
-    const m = s.match(/^([\d.]+)(B|K|M|G|T)$/i)
-    if (!m) return 0
-    const n = parseFloat(m[1]); const u = m[2].toUpperCase()
-    return n * ({ B: 1e-6, K: 1e-3, M: 1, G: 1e3, T: 1e6 }[u] || 0)
-  }
-  out.sort((a, b) => toMB(b.size) - toMB(a.size))
-  return out
+//
+// This used to run `du -sh` through execSync, one directory at a time, with an
+// 8s timeout each. Twelve paths could block the main process for a minute and a
+// half: the window stopped repainting, the timer stopped ticking, and the panel
+// sat on "Scanning…". Now it runs a few `du` processes in parallel, never
+// blocks the event loop, streams each result as it lands, and caches the scan.
+const CLEANUP_CANDIDATES = [
+  { name: 'WeChat (微信 cache & downloads)', path: '~/Library/Containers/com.tencent.xinWeChat' },
+  { name: 'QQ container', path: '~/Library/Containers/com.tencent.qq' },
+  { name: 'Microsoft Edge', path: '~/Library/Application Support/Microsoft Edge' },
+  { name: 'Notion cache', path: '~/Library/Application Support/Notion' },
+  { name: 'Docker containers', path: '~/Library/Containers/com.docker.docker' },
+  { name: 'Colima VM', path: '~/.colima' },
+  { name: 'Ollama models', path: '~/.ollama' },
+  { name: 'Homebrew cache', path: '~/Library/Caches/Homebrew' },
+  { name: 'pnpm store', path: '~/Library/pnpm' },
+  { name: 'npm cache', path: '~/.npm' },
+  { name: 'pip cache', path: '~/.cache/pip' },
+  { name: 'User Caches', path: '~/Library/Caches' },
+  { name: 'System logs (older)', path: '~/Library/Logs/DiagnosticReports' },
+]
+const CLEANUP_TTL_MS = 60 * 1000
+
+let cleanupScan = null
+let cleanupCache = null
+let cleanupCacheAt = 0
+
+function fmtKB(kb) {
+  if (kb >= 1024 * 1024) return (kb / 1024 / 1024).toFixed(1) + ' GB'
+  if (kb >= 1024) return (kb / 1024).toFixed(1) + ' MB'
+  return kb + ' KB'
 }
 
-ipcMain.handle('get-cleanup-suggestions', () => {
+function duKB(dir) {
+  return new Promise((resolve) => {
+    execFile('du', ['-sk', dir], { timeout: 8000, maxBuffer: 1 << 20 }, (err, stdout) => {
+      if (err) { resolve(null); return }
+      const kb = parseInt(String(stdout).trim().split(/\s+/)[0], 10)
+      resolve(Number.isFinite(kb) ? kb : null)
+    })
+  })
+}
+
+// onItem fires for every directory as soon as its size is known, so the panel
+// fills in progressively instead of waiting for the slowest path.
+function getCleanupSuggestions(onItem) {
+  const now = Date.now()
+  if (cleanupCache && now - cleanupCacheAt < CLEANUP_TTL_MS) {
+    if (onItem) cleanupCache.forEach(onItem)
+    return Promise.resolve(cleanupCache)
+  }
+  if (cleanupScan) return cleanupScan
+
+  const home = require('os').homedir()
+  const targets = CLEANUP_CANDIDATES
+    .map(c => ({ name: c.name, path: c.path.replace(/^~/, home) }))
+    .filter(c => { try { return fs.existsSync(c.path) } catch { return false } })
+
+  const items = []
+  const queue = targets.slice()
+  const CONCURRENCY = 4
+
+  async function worker() {
+    for (;;) {
+      const t = queue.shift()
+      if (!t) return
+      const kb = await duKB(t.path)
+      if (!kb) continue
+      const item = { name: t.name, path: t.path, kb, size: fmtKB(kb) }
+      items.push(item)
+      if (onItem) onItem(item)
+    }
+  }
+
+  cleanupScan = Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, targets.length) }, worker)
+  ).then(() => {
+    items.sort((a, b) => b.kb - a.kb)
+    cleanupCache = items
+    cleanupCacheAt = Date.now()
+    return items
+  }).finally(() => { cleanupScan = null })
+
+  return cleanupScan
+}
+
+ipcMain.handle('get-cleanup-suggestions', async () => {
   try {
-    const items = getCleanupSuggestions()
+    const items = await getCleanupSuggestions((item) => {
+      if (win && !win.isDestroyed()) win.webContents.send('cleanup-item', item)
+    })
     return { ok: true, items }
   } catch (e) {
     return { ok: false, error: e.message, items: [] }
@@ -938,7 +987,9 @@ ipcMain.handle('get-cleanup-suggestions', () => {
 
 ipcMain.handle('open-path', (_, p) => {
   try {
-    require('child_process').exec(`open "${p}"`)
+    // execFile, not exec: the path comes from the renderer and must never
+    // reach a shell.
+    execFile('open', [String(p)])
     return { ok: true }
   } catch (e) {
     return { ok: false, error: e.message }
@@ -1063,10 +1114,27 @@ ipcMain.handle('nuclear', async (_, mode) => {
 // still in flight, requests would pile up, so concurrent callers share one
 // snapshot instead of each spawning their own ps/probe pair.
 let memInFlight = null
+// The panel already renders a snapshot every 10s. Freezing used to take a
+// second full collect() of its own, so a click could wait on two overlapping
+// process sweeps. Reuse the last one when it is recent enough.
+let memLastApps = null
+let memLastAt = 0
+const MEM_SNAPSHOT_TTL_MS = 15 * 1000
+
 function memCollect() {
   if (memInFlight) return memInFlight
-  memInFlight = mem.collect().finally(() => { memInFlight = null })
+  memInFlight = mem.collect()
+    .then((snap) => {
+      memLastApps = snap.apps
+      memLastAt = Date.now()
+      return snap
+    })
+    .finally(() => { memInFlight = null })
   return memInFlight
+}
+
+function memRecentApps() {
+  return memLastApps && Date.now() - memLastAt < MEM_SNAPSHOT_TTL_MS ? memLastApps : null
 }
 
 ipcMain.handle('mem-list', async () => {
@@ -1080,13 +1148,13 @@ ipcMain.handle('mem-list', async () => {
 })
 
 ipcMain.handle('mem-freeze', async (_e, name) => {
-  const r = await mem.freeze(String(name))
+  const r = await mem.freeze(String(name), memRecentApps())
   updateTrayMenu()
   return r
 })
 
 ipcMain.handle('mem-thaw', async (_e, name) => {
-  const r = await mem.thaw(String(name))
+  const r = await mem.thaw(String(name), memRecentApps())
   updateTrayMenu()
   return r
 })
