@@ -641,10 +641,14 @@
 
   /* Cleanup overlay */
   .cleanup-list {
+    flex: 1 1 auto;
+    min-height: 80px;
     max-height: 320px;
     overflow-y: auto;
+    overscroll-behavior: contain;
     text-align: left;
     margin: 12px 0 8px;
+    padding-right: 6px;
   }
   .cleanup-item {
     display: flex;
@@ -720,7 +724,13 @@
     color: var(--muted);
     text-align: center;
     margin-bottom: 12px;
-    line-height: 1.5;
+    line-height: 1.6;
+  }
+  .mem-caption-main { font-size: 11px; }
+  .mem-caption-sub {
+    font-size: 9.5px;
+    color: var(--muted-dim);
+    margin-top: 2px;
   }
   .mem-filters {
     display: flex;
@@ -748,10 +758,15 @@
     font-weight: 600;
   }
   .mem-list {
-    max-height: 300px;
+    flex: 1 1 auto;
+    min-height: 80px;
+    max-height: 320px;
     overflow-y: auto;
+    overscroll-behavior: contain;
     text-align: left;
     margin: 0 0 10px;
+    /* Keep the scrollbar off the row borders. */
+    padding-right: 6px;
   }
   .mem-row {
     display: grid;
@@ -871,6 +886,20 @@
     padding: 9px 11px;
     margin-bottom: 10px;
   }
+  .mem-note-sub {
+    display: block;
+    margin-top: 5px;
+    opacity: 0.75;
+  }
+  .mem-purge-note {
+    font-size: 9.5px;
+    color: var(--muted-dim);
+    text-align: center;
+    line-height: 1.5;
+    margin: -4px 0 6px;
+    min-height: 0;
+  }
+  .mem-purge-note:empty { display: none; }
   .mem-empty {
     padding: 20px;
     color: var(--muted);
@@ -928,12 +957,28 @@
     width: 90%;
     color: var(--cream);
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(232, 147, 90, 0.06);
+    /* The memory card is taller than a small window; let the list scroll
+       inside it instead of running off the bottom edge. */
+    max-height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
   }
   .overlay-card h2 {
     font-size: 16px;
     font-weight: 600;
     margin-bottom: 8px;
   }
+  /* Everything except the scrolling lists keeps its height when the card is
+     capped by a short window. */
+  .overlay-card > h2,
+  .overlay-card > p,
+  .cleanup-total,
+  .mem-gauge,
+  .mem-caption,
+  .mem-note,
+  .mem-filters,
+  .mem-foot,
+  .mem-purge-note { flex: 0 0 auto; }
   .overlay-card p {
     font-size: 12px;
     color: var(--muted);
@@ -1098,11 +1143,10 @@
 
   .lpm-row:active { transform: scale(0.995); }
 
-  /* The right column is much taller than the left, which left a dead gap under
-     the status pill. Auto margins let the ring settle into that space instead,
-     and collapse to 0 when the window is short. */
-  .timer-wrap { margin-top: auto; }
-  .status-pill { margin-bottom: auto; }
+  /* The ring sits directly under the tagline. It used to float down to fill the
+     leftover height, which pushed it to the bottom of a tall window. */
+  .timer-wrap { margin-top: 8px; }
+  .status-pill { margin-top: 4px; }
 
   /* Slightly tighter vertical rhythm so the controls below the fold are one
      small scroll away rather than a long one. */
@@ -1278,16 +1322,17 @@
     <h2 style="text-align:center">Memory &amp; frozen apps</h2>
 
     <div class="mem-gauge"><div class="mem-gauge-fill" id="memGauge"></div></div>
-    <div class="mem-caption" id="memCaption">reading&hellip;</div>
+    <div class="mem-caption">
+      <div class="mem-caption-main" id="memCaptionMain">reading&hellip;</div>
+      <div class="mem-caption-sub" id="memCaptionSub"></div>
+    </div>
 
     <div class="mem-note">
-      <b>Freezing drops CPU to 0 &mdash; it does not give the RAM back.</b> A frozen
-      app keeps holding its memory; the pages only go cold, and macOS compresses or
-      swaps them later on its own schedule. To truly reclaim it, quit the app.
-      Everything you freeze here is thawed automatically when this app quits.
-      <br><br>Memory is each app&rsquo;s physical footprint (what Activity Monitor
-      shows). Helper processes share pages, so the rows can overlap and add up to
-      more than your RAM.
+      <b>Freezing stops the CPU, not the RAM.</b> A frozen app still holds its
+      memory &mdash; quit it to get that back. Everything frozen here thaws when
+      this app quits.
+      <span class="mem-note-sub">Sizes are physical footprints, as in Activity
+      Monitor. Helpers share pages, so rows can add up past your RAM.</span>
     </div>
 
     <div class="mem-filters" id="memFilters">
@@ -1304,6 +1349,7 @@
       <button class="mem-mini" onclick="memPurge(this)">Purge disk cache&hellip;</button>
       <button class="mem-mini" onclick="loadMemory(true)">Refresh</button>
     </div>
+    <div class="mem-purge-note" id="memPurgeNote"></div>
     <div style="text-align:center">
       <a href="#" onclick="closeMemory()" style="font-size:11px;color:rgba(245,238,218,0.4);text-decoration:none">Close</a>
     </div>
@@ -1937,6 +1983,43 @@ function closeMemory() {
   if (memTimer) { clearInterval(memTimer); memTimer = null }
 }
 
+// ── Leaving a panel ──
+// Esc and a click on the dimmed backdrop both go back to the main page. The
+// install overlay is deliberately left out (it is required setup) and so is
+// the shutdown countdown, which is not dismissible once it starts.
+const DISMISSIBLE_OVERLAYS = {
+  memOverlay: closeMemory,
+  cleanupOverlay: closeCleanup,
+  licenseOverlay: closeLicense,
+  nuclearOverlay: closeNuclear,
+}
+
+function dismissOverlay(el) {
+  const close = el && DISMISSIBLE_OVERLAYS[el.id]
+  if (!close || !el.classList.contains('show')) return false
+  close()
+  return true
+}
+
+document.addEventListener('click', (e) => {
+  // Only the backdrop itself — a click anywhere in the card must not close it.
+  if (e.target && e.target.classList && e.target.classList.contains('overlay')) {
+    dismissOverlay(e.target)
+  }
+})
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return
+  // Topmost first: the overlays are siblings, so later in the DOM wins.
+  const open = [...document.querySelectorAll('.overlay.show')].reverse()
+  for (const el of open) {
+    if (dismissOverlay(el)) {
+      e.preventDefault()
+      return
+    }
+  }
+})
+
 function syncFilterChips() {
   document.querySelectorAll('#memFilters .mem-filter').forEach(b => {
     b.classList.toggle('on', parseInt(b.dataset.min, 10) === memMin)
@@ -1977,12 +2060,15 @@ function renderMemory() {
     gauge.style.width = '0%'
   }
   const gb = mb => mb == null ? '?' : (mb / 1024).toFixed(1)
-  $('memCaption').innerHTML =
-    `Memory pressure: <b style="color:${free == null ? 'var(--muted)' : free >= 50 ? '#7fc4c4' : free >= 25 ? 'var(--gold)' : 'var(--orange)'}">${free == null ? 'unknown' : free + '% headroom'}</b>` +
-    ` &nbsp;·&nbsp; ${gb(s.usedMB)} / ${gb(s.totalRAMMB)} GB in use` +
-    ` &nbsp;·&nbsp; compressor ${gb(s.compressorMB)} GB` +
-    ` &nbsp;·&nbsp; swap ${gb(s.swapUsedMB)} GB` +
-    `<br>“Unused” is only ${s.unusedMB == null ? '?' : Math.round(s.unusedMB)} MB — that is normal; macOS keeps RAM full on purpose.`
+  // Two lines instead of one long run: the separator-separated version wrapped
+  // mid-phrase at the default window width.
+  const tone = free == null ? 'var(--muted)' : free >= 50 ? '#7fc4c4' : free >= 25 ? 'var(--gold)' : 'var(--orange)'
+  $('memCaptionMain').innerHTML =
+    `${gb(s.usedMB)} / ${gb(s.totalRAMMB)} GB in use &nbsp;·&nbsp; ` +
+    `<b style="color:${tone}">${free == null ? 'pressure unknown' : free + '% headroom'}</b>`
+  $('memCaptionSub').textContent =
+    `compressor ${gb(s.compressorMB)} GB · swap ${gb(s.swapUsedMB)} GB · ` +
+    `unused ${s.unusedMB == null ? '?' : Math.round(s.unusedMB)} MB (normal — macOS keeps RAM full)`
 
   // Frozen rows always stay visible whatever the filter says, or you could
   // lose the only button that thaws them.
@@ -2095,14 +2181,14 @@ async function memPurge(btn) {
   try { res = await window.mca.memPurge() } catch {}
   btn.disabled = false
   btn.textContent = original
-  const note = $('memCaption')
-  if (res && res.ok) {
-    note.innerHTML += '<br>Disk cache flushed. Note: <code>purge</code> only empties the file buffer cache — it cannot take memory back from a running app.'
-  } else if (res && res.cancelled) {
-    note.innerHTML += '<br>Purge cancelled.'
-  } else {
-    note.innerHTML += '<br>Purge needs an admin password, and macOS declined it.'
-  }
+  // Its own line: renderMemory() rewrites the caption on the next refresh.
+  const note = $('memPurgeNote')
+  note.textContent = res && res.ok
+    ? 'Disk cache flushed — this empties the file cache only, it cannot take memory back from a running app.'
+    : res && res.cancelled
+      ? 'Purge cancelled.'
+      : 'Purge needs an admin password, and macOS declined it.'
+  setTimeout(() => { note.textContent = '' }, 8000)
   loadMemory()
 }
 
