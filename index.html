@@ -677,6 +677,188 @@
     margin: 4px 0 10px;
   }
 
+  /* ── Memory panel ── */
+  .mem-gauge {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .mem-gauge-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 3px;
+    background: var(--teal);
+    transition: width 0.5s ease, background 0.3s ease;
+  }
+  .mem-gauge-fill[data-level="warn"] { background: var(--gold); }
+  .mem-gauge-fill[data-level="high"] { background: var(--orange); }
+  .mem-caption {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+  .mem-filters {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .mem-filter {
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .mem-filter:hover { color: var(--cream); border-color: rgba(240, 192, 74, 0.4); }
+  .mem-filter.on {
+    color: var(--bg);
+    background: var(--gradient);
+    border-color: transparent;
+    font-weight: 600;
+  }
+  .mem-list {
+    max-height: 300px;
+    overflow-y: auto;
+    text-align: left;
+    margin: 0 0 10px;
+  }
+  .mem-row {
+    display: grid;
+    grid-template-columns: 1fr 64px 74px;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    margin-bottom: 5px;
+  }
+  .mem-row.is-frozen {
+    border-color: rgba(58, 138, 138, 0.55);
+    background: rgba(58, 138, 138, 0.10);
+  }
+  .mem-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--cream);
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mem-sub {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--muted);
+    margin-top: 3px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .mem-spark {
+    display: inline-block;
+    height: 3px;
+    width: 54px;
+    border-radius: 2px;
+    background: rgba(138, 154, 176, 0.22);
+    overflow: hidden;
+    flex-shrink: 0;
+    vertical-align: middle;
+  }
+  .mem-spark-fill {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--gradient);
+  }
+  .mem-row.is-frozen .mem-spark-fill { background: var(--teal); }
+  .mem-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--gold);
+    text-align: right;
+    line-height: 1.3;
+  }
+  .mem-num small { display: block; font-size: 9px; color: var(--muted); }
+  .mem-badge {
+    font-size: 8px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: rgba(58, 138, 138, 0.25);
+    color: #7fc4c4;
+  }
+  .mem-badge.warn { background: rgba(232, 147, 90, 0.22); color: var(--orange); }
+  .mem-act {
+    padding: 6px 0;
+    border-radius: 8px;
+    border: 1px solid rgba(240, 192, 74, 0.35);
+    background: rgba(240, 192, 74, 0.10);
+    color: var(--gold);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .mem-act:hover { background: var(--gradient); color: var(--bg); border-color: transparent; }
+  .mem-act:disabled { opacity: 0.4; cursor: default; }
+  .mem-act.resume {
+    border-color: rgba(58, 138, 138, 0.6);
+    background: rgba(58, 138, 138, 0.18);
+    color: #7fc4c4;
+  }
+  .mem-act.resume:hover { background: var(--teal); color: var(--bg); }
+  .mem-foot {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+  .mem-mini {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .mem-mini:hover { color: var(--cream); border-color: rgba(240, 192, 74, 0.4); }
+  .mem-note {
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.55;
+    text-align: left;
+    background: rgba(232, 147, 90, 0.07);
+    border: 1px solid rgba(232, 147, 90, 0.18);
+    border-radius: 9px;
+    padding: 9px 11px;
+    margin-bottom: 10px;
+  }
+  .mem-empty {
+    padding: 20px;
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+  }
+
   /* Upgrade banner */
   .upgrade-banner {
     display: none;
@@ -824,6 +1006,45 @@
   </div>
 </div>
 
+<!-- Memory panel: per-app real memory + freeze (SIGSTOP) -->
+<div class="overlay" id="memOverlay">
+  <div class="overlay-card" style="max-width: 540px; text-align: left;">
+    <div style="font-size:24px;margin-bottom:6px;text-align:center">&#10052;</div>
+    <h2 style="text-align:center">Memory &amp; frozen apps</h2>
+
+    <div class="mem-gauge"><div class="mem-gauge-fill" id="memGauge"></div></div>
+    <div class="mem-caption" id="memCaption">reading&hellip;</div>
+
+    <div class="mem-note">
+      <b>Freezing drops CPU to 0 &mdash; it does not give the RAM back.</b> A frozen
+      app keeps holding its memory; the pages only go cold, and macOS compresses or
+      swaps them later on its own schedule. To truly reclaim it, quit the app.
+      Everything you freeze here is thawed automatically when this app quits.
+      <br><br>Memory is each app&rsquo;s physical footprint (what Activity Monitor
+      shows). Helper processes share pages, so the rows can overlap and add up to
+      more than your RAM.
+    </div>
+
+    <div class="mem-filters" id="memFilters">
+      <button class="mem-filter" data-min="0">all</button>
+      <button class="mem-filter" data-min="200">&ge;200 MB</button>
+      <button class="mem-filter" data-min="500">&ge;500 MB</button>
+      <button class="mem-filter" data-min="1024">&ge;1 GB</button>
+    </div>
+
+    <div class="mem-list" id="memList"><div class="mem-empty">Reading&hellip;</div></div>
+
+    <div class="mem-foot">
+      <button class="mem-mini" id="memThawAllBtn" onclick="memThawAll()" style="display:none">Thaw all</button>
+      <button class="mem-mini" onclick="memPurge(this)">Purge disk cache&hellip;</button>
+      <button class="mem-mini" onclick="loadMemory(true)">Refresh</button>
+    </div>
+    <div style="text-align:center">
+      <a href="#" onclick="closeMemory()" style="font-size:11px;color:rgba(245,238,218,0.4);text-decoration:none">Close</a>
+    </div>
+  </div>
+</div>
+
 <div class="countdown" id="countdownOverlay">
   <div class="countdown-warning">&#9888; &nbsp;SYSTEM NUCLEAR&nbsp; &#9888;</div>
   <div class="countdown-num" id="countdownNum">5</div>
@@ -962,6 +1183,8 @@
     </label>
 
     <button class="cleanup-btn" onclick="openCleanup()">&#129529; &nbsp;Free up disk space…</button>
+
+    <button class="cleanup-btn" onclick="openMemory()">&#10052; &nbsp;Memory &amp; frozen apps&hellip;</button>
 
     <div class="footer">
       <span id="appVersion">MacClosedAwake</span> &mdash; <a href="#" onclick="openUpgrade()">Upgrade</a>
@@ -1285,6 +1508,190 @@ function closeCleanup() {
   $('cleanupOverlay').classList.remove('show')
 }
 
+// ── Memory panel ──
+let memTimer = null
+let memMin = 0        // filter threshold in MB
+let memBusy = false   // an action is in flight — don't repaint under the click
+let memLast = null    // last snapshot, kept so a slow refresh never blanks the list
+
+function fmtMem(mb) {
+  if (!mb) return '0 MB'
+  return mb >= 1024 ? (mb / 1024).toFixed(2) + ' GB' : Math.round(mb) + ' MB'
+}
+
+function openMemory() {
+  $('memOverlay').classList.add('show')
+  $('memList').innerHTML = '<div class="mem-empty">Reading&hellip;</div>'
+  syncFilterChips()
+  loadMemory()
+  // 10s: a snapshot costs ~350ms of process spawning, and memory moves slowly.
+  // Refreshes are skipped entirely while the window is hidden.
+  memTimer = setInterval(() => { if (!document.hidden) loadMemory() }, 10000)
+}
+
+function closeMemory() {
+  $('memOverlay').classList.remove('show')
+  if (memTimer) { clearInterval(memTimer); memTimer = null }
+}
+
+function syncFilterChips() {
+  document.querySelectorAll('#memFilters .mem-filter').forEach(b => {
+    b.classList.toggle('on', parseInt(b.dataset.min, 10) === memMin)
+  })
+}
+
+async function loadMemory() {
+  if (!window.mca || !window.mca.memList) return
+  let r
+  try {
+    r = await window.mca.memList()
+  } catch (e) {
+    $('memList').innerHTML = '<div class="mem-empty">Memory read failed.</div>'
+    return
+  }
+  if (!r || !r.ok) {
+    $('memList').innerHTML = `<div class="mem-empty">Memory read failed${r && r.error ? ': ' + r.error : ''}.</div>`
+    return
+  }
+  memLast = r
+  if (!memBusy) renderMemory()
+}
+
+function renderMemory() {
+  if (!memLast) return
+  const r = memLast
+  const s = r.system || {}
+  const all = r.apps || []
+
+  // Pressure gauge. macOS reports headroom, where high is healthy — this is
+  // the number worth watching, not "unused bytes".
+  const free = s.pressureFreePct
+  const gauge = $('memGauge')
+  if (free != null) {
+    gauge.style.width = Math.max(3, Math.min(100, free)) + '%'
+    gauge.dataset.level = free >= 50 ? 'ok' : free >= 25 ? 'warn' : 'high'
+  } else {
+    gauge.style.width = '0%'
+  }
+  const gb = mb => mb == null ? '?' : (mb / 1024).toFixed(1)
+  $('memCaption').innerHTML =
+    `Memory pressure: <b style="color:${free == null ? 'var(--muted)' : free >= 50 ? '#7fc4c4' : free >= 25 ? 'var(--gold)' : 'var(--orange)'}">${free == null ? 'unknown' : free + '% headroom'}</b>` +
+    ` &nbsp;·&nbsp; ${gb(s.usedMB)} / ${gb(s.totalRAMMB)} GB in use` +
+    ` &nbsp;·&nbsp; compressor ${gb(s.compressorMB)} GB` +
+    ` &nbsp;·&nbsp; swap ${gb(s.swapUsedMB)} GB` +
+    `<br>“Unused” is only ${s.unusedMB == null ? '?' : Math.round(s.unusedMB)} MB — that is normal; macOS keeps RAM full on purpose.`
+
+  // Frozen rows always stay visible whatever the filter says, or you could
+  // lose the only button that thaws them.
+  const rows = all.filter(a => a.memMB >= memMin || a.frozen || a.partial)
+  const list = $('memList')
+  // Repainting every 6s must not yank the list back to the top mid-read.
+  const keepScroll = list.scrollTop
+  if (!rows.length) {
+    list.innerHTML = `<div class="mem-empty">Nothing above ${fmtMem(memMin)}.</div>`
+  } else {
+    const maxMB = Math.max(1, ...all.map(a => a.memMB))
+    list.innerHTML = rows.map(a => {
+      const width = Math.max(2, Math.round((a.memMB / maxMB) * 100))
+      const badges =
+        (a.frozen ? '<span class="mem-badge">frozen</span>' : '') +
+        (a.partial ? '<span class="mem-badge warn">partial</span>' : '') +
+        (a.kind === 'bin' ? '<span class="mem-badge warn">process</span>' : '')
+      return `<div class="mem-row${a.frozen ? ' is-frozen' : ''}" data-name="${encodeURIComponent(a.name)}" data-frozen="${a.frozen ? 1 : 0}">
+        <div style="min-width:0">
+          <div class="mem-name">${a.name}</div>
+          <div class="mem-sub">
+            <span class="mem-spark"><span class="mem-spark-fill" style="width:${width}%"></span></span>
+            <span>${a.procs > 1 ? a.procs + ' procs' : '1 proc'}</span>
+            <span>${a.cpu.toFixed(0)}% cpu</span>
+            ${badges}
+          </div>
+        </div>
+        <div class="mem-num">${fmtMem(a.memMB)}<small>${a.memPct}% RAM</small></div>
+        <div>
+          <button class="mem-act${a.frozen ? ' resume' : ''}" ${a.frozen ? 'data-thaw' : 'data-freeze'}>
+            ${a.frozen ? '&#9654; Resume' : '&#10052; Pause'}
+          </button>
+        </div>
+      </div>`
+    }).join('')
+  }
+
+  list.scrollTop = keepScroll
+
+  const frozenCount = (r.frozen || []).length
+  $('memThawAllBtn').style.display = frozenCount ? '' : 'none'
+  $('memThawAllBtn').textContent = frozenCount ? `Thaw all (${frozenCount})` : 'Thaw all'
+}
+
+// One delegated handler survives every repaint.
+document.addEventListener('click', async (e) => {
+  const filter = e.target.closest('.mem-filter')
+  if (filter) {
+    memMin = parseInt(filter.dataset.min, 10) || 0
+    syncFilterChips()
+    renderMemory()
+    return
+  }
+  const btn = e.target.closest('.mem-act[data-freeze], .mem-act[data-thaw]')
+  if (!btn) return
+  const row = btn.closest('.mem-row')
+  const name = decodeURIComponent(row.dataset.name)
+  // hasAttribute, not btn.dataset.thaw: the rendered attribute is empty
+  // (`data-thaw=""`), and an empty string is falsy — a Resume click would
+  // otherwise take the freeze branch and freeze it a second time.
+  const thawing = btn.hasAttribute('data-thaw')
+  btn.disabled = true
+  memBusy = true
+  try {
+    const res = thawing ? await window.mca.memThaw(name) : await window.mca.memFreeze(name)
+    if (!res || !res.ok) {
+      btn.disabled = false
+      memBusy = false
+      btn.textContent = '!'
+      setTimeout(loadMemory, 900)
+      return
+    }
+  } catch (err) {
+    memBusy = false
+    return
+  }
+  memBusy = false
+  // Re-read the kernel's view instead of assuming the signal landed.
+  setTimeout(loadMemory, 350)
+})
+
+async function memThawAll() {
+  memBusy = true
+  try { await window.mca.memThawAll() } catch {}
+  memBusy = false
+  setTimeout(loadMemory, 350)
+}
+
+async function memPurge(btn) {
+  const original = btn.textContent
+  btn.disabled = true
+  btn.textContent = 'Purging…'
+  let res = null
+  try { res = await window.mca.memPurge() } catch {}
+  btn.disabled = false
+  btn.textContent = original
+  const note = $('memCaption')
+  if (res && res.ok) {
+    note.innerHTML += '<br>Disk cache flushed. Note: <code>purge</code> only empties the file buffer cache — it cannot take memory back from a running app.'
+  } else if (res && res.cancelled) {
+    note.innerHTML += '<br>Purge cancelled.'
+  } else {
+    note.innerHTML += '<br>Purge needs an admin password, and macOS declined it.'
+  }
+  loadMemory()
+}
+
+// The tray's "Thaw all" pushes this so the open panel follows along.
+if (window.mca && window.mca.onMemRefresh) {
+  window.mca.onMemRefresh(() => { if ($('memOverlay').classList.contains('show')) loadMemory() })
+}
+
 // Web Audio: short tick, heavier at the end
 let eggAudioCtx = null;
 function eggTick(final) {
@@ -1421,8 +1828,11 @@ window.mca.status().then(s => {
 });
 
 // Re-poll the power source so the warning appears/clears when the charger
-// is plugged or unplugged mid-session.
+// is plugged or unplugged mid-session. Skipped while the window is hidden to
+// the tray — there is nothing to repaint, and the poll costs several child
+// processes in the main process.
 setInterval(() => {
+  if (document.hidden) return
   window.mca.status().then(s => {
     showBatteryWarning(s);
     renderLpmStatus(s);

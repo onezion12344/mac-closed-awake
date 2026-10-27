@@ -29,6 +29,7 @@ Not anymore.
 - 🪟 **Resizable window** — drag it to any size; contents scroll instead of getting clipped
 - ☢️ **NUCLEAR (Shut Down / Restart)** — macOS doesn't auto-kill hung apps on reboot like Windows does. Nuclear gracefully quits every app, force-quits stragglers, then shuts down or reboots. 🎉 **Easter egg hidden next to it** — enable the "Countdown show" toggle and confirm: fullscreen 5→0 alarm + ticks before the machine goes dark.
 - 🔄 **Auto-restore** — sleep re-enabled automatically when timer ends
+- ❄️ **Memory & frozen apps** — every app's real memory footprint (the number Activity Monitor shows), sorted. Hit **Pause** to freeze a runaway app with `SIGSTOP`: CPU drops to 0 instantly, resume mid-operation with no data loss. Honest about what freezing does *not* do — it doesn't hand its RAM back; macOS only compresses/swaps those pages later.
 - 🪄 **Menu bar app** — lives in tray, stays out of your way
 - 🔐 **No password prompts** — install helper once, done forever
 

@@ -1,10 +1,11 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, shell, dialog, nativeImage, Notification } = require('electron')
+const { app, BrowserWindow, Tray, Menu, ipcMain, shell, dialog, nativeImage, Notification, powerMonitor } = require('electron')
 const { exec, spawn, execSync } = require('child_process')
 const path = require('path')
 const fs = require('fs')
 const net = require('net')
 
 const { verifyActivationCode } = require('./license')
+const mem = require('./memory')
 
 // ⚠️ PRODUCTION WARNING: This is a TEST Stripe link with test-mode success_url.
 // Before shipping: (1) swap to production Payment Link URL, (2) set production
@@ -198,28 +199,64 @@ async function sendHelper(cmd) {
 async function installHelper() {
   const dir = path.dirname(HELPER_BIN)
   fs.mkdirSync(dir, { recursive: true })
+  fs.mkdirSync(path.dirname(HELPER_PLIST), { recursive: true })
 
   // Write helper script (Node.js, bundled in the app)
   fs.writeFileSync(HELPER_BIN, HELPER_CODE, { mode: 0o755 })
   fs.writeFileSync(HELPER_VERSION_FILE, HELPER_VERSION)
 
   // Detect the absolute path to node/bun while we still have the user's PATH.
-  // launchd user agents get a minimal PATH, so hardcoding the interpreter avoids
-  // "command not found" (exit 127) on systems where node is outside /usr/bin.
+  // launchd user agents get a minimal PATH, and an app launched from Finder
+  // inherits almost nothing from the shell, so `command -v node` misses
+  // nvm/volta/homebrew installs. The wrapper then exits 127, launchd restarts
+  // it forever, and the helper looks like it never installed. Probe the usual
+  // locations explicitly, and fall back to the Electron binary (which can run
+  // as plain Node) so a runtime is always available.
   function findInterpreter() {
+    const candidates = []
     for (const cmd of ['node', 'bun']) {
       try {
         const p = execSync(`command -v ${cmd}`, { encoding: 'utf8', shell: true }).trim()
-        if (p) return { path: p, cmd }
+        if (p) candidates.push({ path: p, electron: false })
       } catch {}
     }
-    return null
+    const home = app.getPath('home')
+    candidates.push(
+      { path: '/opt/homebrew/bin/node', electron: false },
+      { path: '/usr/local/bin/node', electron: false },
+      { path: '/usr/bin/node', electron: false },
+      { path: path.join(home, '.volta/bin/node'), electron: false },
+      { path: path.join(home, '.local/bin/node'), electron: false },
+      { path: '/opt/homebrew/bin/bun', electron: false },
+    )
+    // nvm keeps one node per version; take the newest that exists.
+    try {
+      const nvmDir = path.join(home, '.nvm/versions/node')
+      const newestFirst = fs.readdirSync(nvmDir).sort((a, b) => {
+        const pa = a.split('.').map(Number)
+        const pb = b.split('.').map(Number)
+        for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+          if ((pa[i] || 0) !== (pb[i] || 0)) return (pb[i] || 0) - (pa[i] || 0)
+        }
+        return 0
+      })
+      for (const v of newestFirst) candidates.push({ path: path.join(nvmDir, v, 'bin/node'), electron: false })
+    } catch {}
+
+    for (const c of candidates) {
+      try {
+        fs.accessSync(c.path, fs.constants.X_OK)
+        return c
+      } catch {}
+    }
+    return { path: process.execPath, electron: true }
   }
   const interpreter = findInterpreter()
+  const first = interpreter.electron
+    ? `ELECTRON_RUN_AS_NODE=1 exec "${interpreter.path}" "${HELPER_BIN}"`
+    : `exec "${interpreter.path}" "${HELPER_BIN}"`
   // Wrapper tries the detected interpreter first, then falls back to PATH search.
-  const launcher = interpreter
-    ? `exec "${interpreter.path}" "${HELPER_BIN}" 2>/dev/null || exec /usr/bin/env node "${HELPER_BIN}" 2>/dev/null || exec /usr/bin/env bun "${HELPER_BIN}"`
-    : `exec /usr/bin/env node "${HELPER_BIN}" 2>/dev/null || exec /usr/bin/env bun "${HELPER_BIN}"`
+  const launcher = `${first} 2>/dev/null || exec /usr/bin/env node "${HELPER_BIN}" 2>/dev/null || exec /usr/bin/env bun "${HELPER_BIN}"`
 
   // launchd runs user agents with a minimal PATH, so expose common interpreter locations.
   const pathEnv = '/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin'
@@ -260,17 +297,28 @@ async function installHelper() {
   const uid = process.getuid()
   return new Promise((resolve, reject) => {
     // Stop any existing instance (both old v1 and current v2 labels).
+    // `enable` is essential: if the label was ever disabled, bootstrap fails
+    // with "5: Input/output error" forever and the helper can never start.
     exec(
       `launchctl bootout gui/${uid}/com.mca.helper 2>/dev/null; ` +
       `launchctl bootout gui/${uid}/com.mca.helper.v2 2>/dev/null; ` +
+      `launchctl enable gui/${uid}/com.mca.helper.v2 2>/dev/null; ` +
       `launchctl bootstrap gui/${uid} "${HELPER_PLIST}"`,
-      (err) => {
-        if (err) reject(err)
-        else {
-          helperRunning = true
-          saveConfig({ ...loadConfig(), helperInstalled: true })
-          resolve({ ok: true })
+      async (err) => {
+        if (err) {
+          reject(err)
+          return
         }
+        helperRunning = true
+        saveConfig({ ...loadConfig(), helperInstalled: true })
+        for (let attempt = 0; attempt < 20; attempt++) {
+          if (await checkHelper()) {
+            resolve({ ok: true })
+            return
+          }
+          await new Promise(r => setTimeout(r, 250))
+        }
+        reject(new Error('Helper was installed but did not start. Check /tmp/mca-helper.err.'))
       }
     )
   })
@@ -282,6 +330,7 @@ function restartHelper() {
     exec(
       `launchctl bootout gui/${uid}/com.mca.helper 2>/dev/null; ` +
       `launchctl bootout gui/${uid}/com.mca.helper.v2 2>/dev/null; ` +
+      `launchctl enable gui/${uid}/com.mca.helper.v2 2>/dev/null; ` +
       `launchctl bootstrap gui/${uid} "${HELPER_PLIST}"`,
       (err) => {
         if (err) reject(err)
@@ -292,42 +341,16 @@ function restartHelper() {
 }
 
 async function ensureHelper() {
-  // Reinstall if the on-disk helper is missing or from an older version.
-  let needsInstall = false
-  try {
-    const currentVersion = fs.readFileSync(HELPER_VERSION_FILE, 'utf8').trim()
-    if (currentVersion !== HELPER_VERSION) needsInstall = true
-  } catch {
-    needsInstall = true
+  if (!helperIsInstalled()) {
+    await installHelper()
+    return
   }
 
-  const helperOk = await checkHelper()
-
-  if (needsInstall) {
-    // Outdated helper — reinstall the new version.
-    try {
-      await installHelper()
-      return
-    } catch (e) {
-      logError('Failed to install helper:', e.message)
-      throw e
-    }
-  }
-
-  if (!helperOk) {
-    // Same version but not responding — try a non-admin restart first.
+  if (!await checkHelper()) {
     try {
       await restartHelper()
-      await new Promise(r => setTimeout(r, 500))
-      if (await checkHelper()) return
-    } catch {}
-
-    // Restart didn't help; do a full reinstall.
-    try {
-      await installHelper()
     } catch (e) {
-      logError('Failed to install helper:', e.message)
-      throw e
+      logError('Failed to restart helper:', e.message)
     }
   }
 }
@@ -335,23 +358,21 @@ async function ensureHelper() {
 function checkHelper() {
   return new Promise((resolve) => {
     const socket = new net.Socket({ allowHalfOpen: true })
-    socket.setTimeout(1000)
+    let settled = false
+    const finish = (ok) => {
+      if (settled) return
+      settled = true
+      socket.destroy()
+      resolve(ok)
+    }
+    socket.setTimeout(2000)
     socket.connect(HELPER_SOCKET, () => {
       socket.write('STATUS')
       socket.end()
     })
-    socket.on('data', (data) => {
-      socket.destroy()
-      resolve(true)
-    })
-    socket.on('error', () => {
-      socket.destroy()
-      resolve(false)
-    })
-    socket.on('timeout', () => {
-      socket.destroy()
-      resolve(false)
-    })
+    socket.on('data', (data) => finish(/^\d$/.test(data.toString().trim())))
+    socket.on('error', () => finish(false))
+    socket.on('timeout', () => finish(false))
   })
 }
 
@@ -372,71 +393,32 @@ async function getLowPowerStatus() {
 // state (via getLowPowerStatus, which queries pmset) for display. We never
 // write to it — see the read-only indicator in the renderer.
 
-// ── Timer ──
-let powerMonitor = null
+// ── Power events ──
+// This used to be a detached bash loop that ran `pmset -g custom` every 5s and
+// `ioreg` every 15s for the whole session — a permanent child process plus
+// ~700 process spawns per hour, to write a flag file that nothing ever read.
+// Electron already reports the only events we care about, so listen to those.
+let powerListeners = null
 
-// Monitor system for power state changes (lid close/open)
 function startPowerMonitor() {
-  // If we already have a monitor, skip
-  if (powerMonitor) return
-  
-  // Use system profiler to detect power events
-  const monitorScript = `#!/bin/bash
-# Continuous power monitor for MacClosedAwake
-SOCKET="/tmp/com.mca.helper.sock"
-LAST_STATUS=""
-CHECK_COUNT=0
-
-while true; do
-  # Query current disablesleep status from pmset
-  CURRENT=$(pmset -g custom 2>/dev/null | grep -o 'disablesleep [0-9]' | awk '{print $2}' || echo "unknown")
-  
-  # Check if we just closed the lid (every 5 seconds)
-  CHECK_COUNT=$((CHECK_COUNT + 1))
-  
-  # On every 3rd check (~15s), also read battery/lid status
-  if [ $((CHECK_COUNT % 3)) -eq 0 ]; then
-    LID_INFO=$(ioreg -rn AppleRTC 2>/dev/null | grep -i lid || echo "")
-    BATTERY_INFO=$(pmset -g batt 2>/dev/null | grep -i capacity || echo "")
-    
-    # Detect potential lid closure by checking if sleep was enabled
-    if [ "$CURRENT" != "$LAST_STATUS" ] && [ "$LAST_STATUS" = "1" ]; then
-      # Status changed from disabled to enabled while app should be running
-      echo "LID_CLOSE" > /tmp/mca.lidevent.flag
-    fi
-  fi
-  
-  LAST_STATUS="$CURRENT"
-  sleep 5
-done
-`
-  
-  fs.writeFileSync('/tmp/mca-power-monitor.sh', monitorScript, { mode: 0o755 })
-  
-  // Launch monitor as background process
-  powerMonitor = spawn('bash', ['/tmp/mca-power-monitor.sh'], { detached: true })
-  powerMonitor.unref()
-  logError('Started power monitor')
+  if (powerListeners) return
+  const reassert = () => {
+    // macOS can drop `disablesleep` across a wake or an unlock; put it back
+    // while a session is still live.
+    if (forever || remaining > 0) sendHelper('DISABLE').catch(() => {})
+  }
+  powerMonitor.on('resume', reassert)
+  powerMonitor.on('unlock-screen', reassert)
+  powerListeners = reassert
+  logError('Started power monitor (event-driven)')
 }
 
 function stopPowerMonitor() {
-  if (powerMonitor) {
-    try {
-      powerMonitor.kill('SIGTERM')
-    } catch {}
-    powerMonitor = null
-    logError('Stopped power monitor')
-  }
-  
-  // Clear any event flags
-  try {
-    fs.unlinkSync('/tmp/mca.lidevent.flag')
-  } catch {}
-}
-
-function reapplyDisableSleep() {
-  // Legacy lid-event re-apply; kept for the power monitor. No-op-safe.
-  sendHelper('DISABLE').catch(() => {})
+  if (!powerListeners) return
+  powerMonitor.removeListener('resume', powerListeners)
+  powerMonitor.removeListener('unlock-screen', powerListeners)
+  powerListeners = null
+  logError('Stopped power monitor')
 }
 
 function startTimer(secs) {
@@ -670,10 +652,22 @@ function getPowerSource() {
   })
 }
 
+// "Installed" means the files launchd needs are on disk at the right version.
+// A momentarily unresponsive socket is a separate, recoverable condition and
+// must not be reported as "not installed" — that is what made the app ask to
+// install the helper again on every launch.
+function helperIsInstalled() {
+  try {
+    if (!fs.existsSync(HELPER_BIN) || !fs.existsSync(HELPER_PLIST) || !fs.existsSync(HELPER_VERSION_FILE)) return false
+    return fs.readFileSync(HELPER_VERSION_FILE, 'utf8').trim() === HELPER_VERSION
+  } catch {
+    return false
+  }
+}
+
 ipcMain.handle('status', async () => {
   try {
-    const helperOk = await checkHelper()
-    if (!helperOk) return { helperInstalled: false, disabled: false, remaining: 0 }
+    const helperInstalled = helperIsInstalled()
 
     // Get pmset status via helper
     const result = await sendHelper('STATUS')
@@ -683,7 +677,7 @@ ipcMain.handle('status', async () => {
     const cfg = loadConfig()
     const storage = checkStorage()
     return {
-      helperInstalled: true,
+      helperInstalled,
       disabled,
       remaining: forever ? -1 : remaining,
       elapsed: totalDuration - remaining,
@@ -699,7 +693,7 @@ ipcMain.handle('status', async () => {
       windowRestored: cfg.restoreWindow !== false, // default on
     }
   } catch {
-    return { helperInstalled: false, disabled: false, remaining: 0 }
+    return { helperInstalled: helperIsInstalled(), disabled: false, remaining: 0 }
   }
 })
 
@@ -806,25 +800,68 @@ ipcMain.handle('activate-license', async (_, licenseKey) => {
 })
 
 // ── Unified cleanup ──
-// ── Unified cleanup ──
+let cleanupPromise = null
 async function doCleanup() {
+  if (cleanupPromise) return cleanupPromise
+  cleanupPromise = doCleanupOnce().finally(() => {
+    // Startup crash-recovery also cleans up; a session started afterwards must
+    // still get a real cleanup on quit, so only hold the memo while exiting.
+    if (!quitting) cleanupPromise = null
+  })
+  return cleanupPromise
+}
+
+// Persist window geometry before tearing anything down; the debounced save in
+// createWindow() would otherwise be dropped by the exit.
+function flushWindowBounds() {
+  try {
+    if (!win || win.isDestroyed() || win.isMaximized()) return
+    const cfg = loadConfig()
+    if (cfg.restoreWindow === false) return
+    cfg.windowBounds = win.getBounds()
+    saveConfig(cfg)
+  } catch {}
+}
+
+async function doCleanupOnce() {
   logError('Running cleanup before quit')
+  flushWindowBounds()
+  // Never leave someone's app frozen because we exited.
+  const thawed = mem.thawAll()
+  if (thawed.thawed) logError(`thawed ${thawed.thawed} frozen app(s) on quit`)
   stopCaffeinate()
   stopPowerMonitor()
   clearInterval(restoreTimer)
+  restoreTimer = null
 
   // LPM is owned by macOS — nothing to restore.
 
+  let cleanupTimeout
   try {
-    await sendHelper('ENABLE')
-    saveConfig({ ...loadConfig(), isAwake: false })
+    await Promise.race([
+      sendHelper('ENABLE'),
+      new Promise((_, reject) => {
+        cleanupTimeout = setTimeout(() => reject(new Error('cleanup timed out')), 2000)
+      })
+    ])
   } catch (e) {
     logError('Failed to re-enable sleep during cleanup:', e.message)
+  } finally {
+    clearTimeout(cleanupTimeout)
   }
+  saveConfig({ ...loadConfig(), isAwake: false })
 }
 
 // ── Storage health & cleanup suggestions ──
+// `df` is synchronous and blocks the main process, and the UI asks for status
+// every 30s even though free space moves slowly. Cache it.
+let storageCache = null
+let storageCacheAt = 0
+const STORAGE_TTL_MS = 5 * 60 * 1000
+
 function checkStorage() {
+  const now = Date.now()
+  if (storageCache && now - storageCacheAt < STORAGE_TTL_MS) return storageCache
   try {
     const out = require('child_process').execSync('df -k / | tail -1', { encoding: 'utf8' })
     const m = out.match(/(\d+)\s+(\d+)\s+(\d+)/)
@@ -841,7 +878,9 @@ function checkStorage() {
       : free < mem * 0.8
         ? `Storage getting tight — ${(free / 1024 ** 3).toFixed(1)} GB free.`
         : null
-    return { freeBytes: free, totalBytes: total, usedBytes: used, memoryBytes: mem, warning }
+    storageCache = { freeBytes: free, totalBytes: total, usedBytes: used, memoryBytes: mem, warning }
+    storageCacheAt = now
+    return storageCache
   } catch (e) {
     return { freeBytes: 0, totalBytes: 0, memoryBytes: 0, warning: null }
   }
@@ -956,6 +995,11 @@ function installNuclearSudo() {
 
 // mode: 'shutdown' → power off; 'restart' → reboot
 async function runNuclear(mode) {
+  // A frozen process cannot receive the graceful SIGTERM — the signal just
+  // queues until it continues, so the app would be skipped and then hard-killed
+  // at the 5s mark, silently losing its unsaved-work prompt. Thaw first.
+  const thawed = mem.thawAll()
+  if (thawed.thawed) logError(`NUCLEAR: thawed ${thawed.thawed} frozen app(s) first`)
   // The final command runs via passwordless sudo (installed once by
   // ensureNuclearReady). `-h` halts, `-r` reboots; `now` is immediate.
   const finalCmd = mode === 'shutdown' ? 'sudo -n /sbin/shutdown -h now' : 'sudo -n /sbin/shutdown -r now'
@@ -1014,6 +1058,51 @@ ipcMain.handle('nuclear', async (_, mode) => {
   }
 })
 
+// ── Memory panel: per-app footprint + freeze ──
+// collect() costs ~350ms. If the renderer refreshes on a timer while a call is
+// still in flight, requests would pile up, so concurrent callers share one
+// snapshot instead of each spawning their own ps/probe pair.
+let memInFlight = null
+function memCollect() {
+  if (memInFlight) return memInFlight
+  memInFlight = mem.collect().finally(() => { memInFlight = null })
+  return memInFlight
+}
+
+ipcMain.handle('mem-list', async () => {
+  try {
+    const { apps, system } = await memCollect()
+    return { ok: true, apps, system, frozen: mem.frozenNames() }
+  } catch (e) {
+    logError('mem-list failed:', e.message)
+    return { ok: false, error: e.message, apps: [], system: {} }
+  }
+})
+
+ipcMain.handle('mem-freeze', async (_e, name) => {
+  const r = await mem.freeze(String(name))
+  updateTrayMenu()
+  return r
+})
+
+ipcMain.handle('mem-thaw', async (_e, name) => {
+  const r = await mem.thaw(String(name))
+  updateTrayMenu()
+  return r
+})
+
+ipcMain.handle('mem-thaw-all', async () => {
+  const r = mem.thawAll()
+  updateTrayMenu()
+  return r
+})
+
+ipcMain.handle('mem-purge', async () => {
+  const r = await mem.purgeCaches()
+  logError('purge caches:', JSON.stringify(r))
+  return r
+})
+
 // ── Tray ──
 function updateTrayMenu() {
   if (!tray) return
@@ -1023,16 +1112,25 @@ function updateTrayMenu() {
     { label: 'Show', click: () => { win.show(); win.focus() } },
     { label: `Status: ${label}`, enabled: false },
   ]
+  // Frozen apps are reachable from the tray even with the window closed —
+  // the one situation where being unable to thaw would be worst.
+  const frozen = mem.frozenNames()
+  if (frozen.length) {
+    items.push({ label: `Frozen: ${frozen.join(', ')}`, enabled: false })
+    items.push({
+      label: `Thaw all (${frozen.length})`,
+      click: () => { mem.thawAll(); updateTrayMenu(); if (win && !win.isDestroyed()) win.webContents.send('mem-refresh') },
+    })
+  }
   if (!cfg.isPro) {
     items.push({ label: 'Upgrade to Pro', click: () => shell.openExternal(STRIPE_LIFETIME_URL) })
   }
   items.push({ type: 'separator' })
   items.push({
     label: 'Quit',
-    click: async () => {
-      await doCleanup()
+    click: () => {
       tray = null
-      app.quit()
+      quitApp()
     }
   })
   tray.setContextMenu(Menu.buildFromTemplate(items))
@@ -1063,11 +1161,15 @@ function createWindow() {
     minHeight: 740,
     titleBarStyle: 'hiddenInset',
     vibrancy: 'under-window',
-    visualEffectState: 'active',
+    // 'active' kept the blur (and its GPU work) running even when the window
+    // was hidden to the tray. Follow the window instead.
+    visualEffectState: 'followWindow',
     backgroundColor: '#0d1b2a',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      spellcheck: false,
+      backgroundThrottling: true,
       preload: path.join(__dirname, 'preload.js'),
     },
   })
@@ -1111,9 +1213,34 @@ function makeTrayIcon() {
 }
 
 // ── App ──
-let cleanupInProgress = false
+// One exit path for the tray item, Cmd+Q, and a system quit request.
+// Cleanup is best-effort: a wedged helper must never keep the app alive, so
+// there is a hard deadline after which we exit unconditionally.
+let quitting = false
+
+function quitApp() {
+  if (quitting) return
+  quitting = true
+  const watchdog = setTimeout(() => {
+    logError('Quit watchdog fired — forcing exit')
+    app.exit(0)
+  }, 5000)
+  watchdog.unref()
+  doCleanup()
+    .catch(e => logError('Cleanup failed:', e.message))
+    .finally(() => {
+      clearTimeout(watchdog)
+      app.exit(0)
+    })
+}
 
 app.whenReady().then(async () => {
+  mem.init(app.getPath('userData'))
+  // Anything still recorded as frozen at startup is from a previous run that
+  // died without cleaning up — those apps are stuck stopped right now, so
+  // thawing them here is the recovery path.
+  const stale = mem.thawAll()
+  if (stale.thawed) logError(`thawed ${stale.thawed} app(s) frozen by a previous run`)
   createWindow()
   trayTemplate = makeTrayIcon()
   tray = new Tray(trayTemplate)
@@ -1163,12 +1290,10 @@ app.on('window-all-closed', () => {
 })
 
 // Clean up before exiting. Prevent default, do async cleanup, then actually quit.
-app.on('before-quit', async (e) => {
-  if (cleanupInProgress) return
-  cleanupInProgress = true
+app.on('before-quit', (e) => {
+  if (quitting) return
   e.preventDefault()
-  await doCleanup()
-  app.quit()
+  quitApp()
 })
 
 app.on('will-quit', () => {
