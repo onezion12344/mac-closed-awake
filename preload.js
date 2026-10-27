@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('mca', {
   ensureNuclearSudo: () => ipcRenderer.invoke('ensure-nuclear-sudo'),
   nuclear: (mode) => ipcRenderer.invoke('nuclear', mode),
   getCleanupSuggestions: () => ipcRenderer.invoke('get-cleanup-suggestions'),
+  cleanCache: (id) => ipcRenderer.invoke('clean-cache', id),
   openPath: (p) => ipcRenderer.invoke('open-path', p),
   memList: () => ipcRenderer.invoke('mem-list'),
   memFreeze: (name) => ipcRenderer.invoke('mem-freeze', name),

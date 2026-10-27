@@ -894,20 +894,23 @@ function checkStorage() {
 // half: the window stopped repainting, the timer stopped ticking, and the panel
 // sat on "Scanning…". Now it runs a few `du` processes in parallel, never
 // blocks the event loop, streams each result as it lands, and caches the scan.
+// `clean` marks a path we are willing to delete ourselves: only throwaway
+// caches that a tool rebuilds on demand. Anything holding user data (chat
+// history, models, VM disks, app profiles) stays open-only.
 const CLEANUP_CANDIDATES = [
-  { name: 'WeChat (微信 cache & downloads)', path: '~/Library/Containers/com.tencent.xinWeChat' },
-  { name: 'QQ container', path: '~/Library/Containers/com.tencent.qq' },
-  { name: 'Microsoft Edge', path: '~/Library/Application Support/Microsoft Edge' },
-  { name: 'Notion cache', path: '~/Library/Application Support/Notion' },
-  { name: 'Docker containers', path: '~/Library/Containers/com.docker.docker' },
-  { name: 'Colima VM', path: '~/.colima' },
-  { name: 'Ollama models', path: '~/.ollama' },
-  { name: 'Homebrew cache', path: '~/Library/Caches/Homebrew' },
-  { name: 'pnpm store', path: '~/Library/pnpm' },
-  { name: 'npm cache', path: '~/.npm' },
-  { name: 'pip cache', path: '~/.cache/pip' },
-  { name: 'User Caches', path: '~/Library/Caches' },
-  { name: 'System logs (older)', path: '~/Library/Logs/DiagnosticReports' },
+  { id: 'wechat', name: 'WeChat (微信 cache & downloads)', path: '~/Library/Containers/com.tencent.xinWeChat' },
+  { id: 'qq', name: 'QQ container', path: '~/Library/Containers/com.tencent.qq' },
+  { id: 'edge', name: 'Microsoft Edge', path: '~/Library/Application Support/Microsoft Edge' },
+  { id: 'notion', name: 'Notion cache', path: '~/Library/Application Support/Notion' },
+  { id: 'docker', name: 'Docker containers', path: '~/Library/Containers/com.docker.docker' },
+  { id: 'colima', name: 'Colima VM', path: '~/.colima' },
+  { id: 'ollama', name: 'Ollama models', path: '~/.ollama' },
+  { id: 'brew', name: 'Homebrew cache', path: '~/Library/Caches/Homebrew', clean: '~/Library/Caches/Homebrew' },
+  { id: 'pnpm', name: 'pnpm store', path: '~/Library/pnpm', clean: '~/Library/pnpm' },
+  { id: 'npm', name: 'npm cache', path: '~/.npm', clean: '~/.npm/_cacache' },
+  { id: 'pip', name: 'pip cache', path: '~/.cache/pip', clean: '~/.cache/pip' },
+  { id: 'caches', name: 'User Caches', path: '~/Library/Caches', clean: '~/Library/Caches' },
+  { id: 'logs', name: 'System logs (older)', path: '~/Library/Logs/DiagnosticReports', clean: '~/Library/Logs/DiagnosticReports' },
 ]
 const CLEANUP_TTL_MS = 60 * 1000
 
@@ -943,7 +946,7 @@ function getCleanupSuggestions(onItem) {
 
   const home = require('os').homedir()
   const targets = CLEANUP_CANDIDATES
-    .map(c => ({ name: c.name, path: c.path.replace(/^~/, home) }))
+    .map(c => ({ id: c.id, name: c.name, path: c.path.replace(/^~/, home), cleanable: !!c.clean }))
     .filter(c => { try { return fs.existsSync(c.path) } catch { return false } })
 
   const items = []
@@ -956,7 +959,7 @@ function getCleanupSuggestions(onItem) {
       if (!t) return
       const kb = await duKB(t.path)
       if (!kb) continue
-      const item = { name: t.name, path: t.path, kb, size: fmtKB(kb) }
+      const item = { id: t.id, name: t.name, path: t.path, kb, size: fmtKB(kb), cleanable: t.cleanable }
       items.push(item)
       if (onItem) onItem(item)
     }
@@ -983,6 +986,36 @@ ipcMain.handle('get-cleanup-suggestions', async () => {
   } catch (e) {
     return { ok: false, error: e.message, items: [] }
   }
+})
+
+ipcMain.handle('clean-cache', async (_e, id) => {
+  // Deletion is driven by an id from the list above, never by a path handed
+  // over by the renderer, and never by anything outside the home directory.
+  const target = CLEANUP_CANDIDATES.find(c => c.id === String(id) && c.clean)
+  if (!target) return { ok: false, error: 'Not a cleanable cache' }
+
+  const home = require('os').homedir()
+  let real
+  try {
+    real = await fs.promises.realpath(target.clean.replace(/^~/, home))
+  } catch {
+    return { ok: true, freedKB: 0 }
+  }
+  if (real === home || !real.startsWith(home + path.sep)) {
+    return { ok: false, error: 'Refusing to delete outside your home folder' }
+  }
+
+  const freedKB = await duKB(real)
+  try {
+    await fs.promises.rm(real, { recursive: true, force: true, maxRetries: 2 })
+  } catch (e) {
+    return { ok: false, error: e.message }
+  }
+  // Both the scan and the free-space warning are stale now.
+  cleanupCache = null
+  cleanupCacheAt = 0
+  storageCache = null
+  return { ok: true, freedKB: freedKB || 0 }
 })
 
 ipcMain.handle('open-path', (_, p) => {

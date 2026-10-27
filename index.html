@@ -227,7 +227,7 @@
   /* Low Power Mode toggle */
   .lpm-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 10px;
     width: 100%;
     margin-bottom: 16px;
@@ -276,9 +276,15 @@
     line-height: 1.4;
   }
   /* LPM read-only indicator */
-  .lpm-readonly { cursor: default; }
+  .lpm-readonly { cursor: default; align-items: flex-start; }
   .lpm-readonly:hover { border-color: var(--border); }
+  .lpm-readonly .lpm-toggle { margin-top: 2px; }
   .lpm-info { flex: 1; min-width: 0; }
+  /* .lpm-desc is right-aligned when it is a sibling of the label (one-line
+     rows). Inside .lpm-info it is stacked copy and must read left to right. */
+  .lpm-info .lpm-desc { margin-left: 0; text-align: left; margin-top: 2px; }
+  .lpm-info .lpm-label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .lpm-row .lpm-toggle { margin-top: 2px; }
   .lpm-hint {
     font-size: 10px;
     color: rgba(245, 238, 218, 0.4);
@@ -299,14 +305,15 @@
   .lpm-status-pill {
     flex-shrink: 0;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
-    letter-spacing: 1.5px;
-    padding: 4px 10px;
+    letter-spacing: 1.2px;
+    padding: 2px 7px;
     border-radius: 999px;
     border: 1px solid var(--border);
     background: var(--card);
     color: var(--muted);
+    transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
   }
   .lpm-status-pill[data-on="true"] {
     color: #0d1b2a;
@@ -1045,13 +1052,15 @@
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transition: opacity 0.22s ease, visibility 0s linear 0.22s;
+    backdrop-filter: blur(0px);
+    transition: opacity 0.22s ease, backdrop-filter 0.22s ease, visibility 0s linear 0.22s;
   }
   .overlay.show {
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
-    transition: opacity 0.22s ease, visibility 0s;
+    backdrop-filter: blur(10px);
+    transition: opacity 0.22s ease, backdrop-filter 0.28s ease, visibility 0s;
   }
   .overlay .overlay-card {
     opacity: 0;
@@ -1108,6 +1117,82 @@
 
   .footer a { transition: color 0.2s ease; }
   .footer a:hover { color: var(--gold); }
+
+  /* ── Motion pass 2 ─────────────────────────────────────────────── */
+
+  /* Switches: the knob overshoots on a spring, and a row that is on keeps a
+     faint inner edge so the on/off state survives a glance. */
+  .lpm-toggle { transition: background 0.25s ease, transform 0.15s ease; }
+  .lpm-toggle::after,
+  .lpm-knob { transition: transform 0.34s var(--ease-spring); }
+  .lpm-row {
+    transition: border-color 0.2s ease, background 0.25s ease,
+                box-shadow 0.3s ease, transform 0.2s ease;
+  }
+  .lpm-row:has(input:checked) {
+    border-color: rgba(58, 138, 138, 0.45);
+    box-shadow: inset 0 0 0 1px rgba(58, 138, 138, 0.10), 0 4px 14px rgba(0, 0, 0, 0.14);
+  }
+  .lpm-row:has(input:checked) .lpm-toggle { background: var(--teal); }
+  .lpm-row:has(input:checked) .lpm-toggle::after { transform: translateX(18px); }
+  .lpm-row:active .lpm-toggle { transform: scale(0.94); }
+
+  /* Secondary buttons lift a hair instead of only changing colour. */
+  .cleanup-btn,
+  .stop-btn,
+  .nuclear-btn {
+    transition: transform 0.2s var(--ease-out), border-color 0.2s ease,
+                background 0.2s ease, color 0.2s ease, box-shadow 0.25s ease;
+  }
+  .cleanup-btn:hover:not(:disabled),
+  .stop-btn:hover:not(:disabled),
+  .nuclear-btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .cleanup-btn:active:not(:disabled),
+  .stop-btn:active:not(:disabled),
+  .nuclear-btn:active:not(:disabled) { transform: translateY(0) scale(0.99); }
+
+  /* Timer digits settle on each tick. Transform only — the value never jumps
+     because of the animation. */
+  .timer-value.tick { animation: tickSettle 0.3s var(--ease-out); }
+  @keyframes tickSettle {
+    from { transform: translateY(-1.5px); opacity: 0.85; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
+
+  /* List rows fade in with a short stagger the first time they appear.
+     `backwards` (not `both`) so hover transforms keep working afterwards. */
+  .cleanup-item.enter,
+  .mem-row.enter {
+    animation: rowIn 0.35s var(--ease-out) backwards;
+    animation-delay: calc(var(--i, 0) * 26ms);
+  }
+  @keyframes rowIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* A cleanable row asks twice: the second click is deliberate, and the nudge
+     makes the changed meaning of the button impossible to miss. */
+  .cleanup-clean { min-width: 54px; }
+  .cleanup-clean:hover:not(:disabled) { color: var(--teal); border-color: var(--teal); }
+  .cleanup-clean:disabled { opacity: 0.65; cursor: default; }
+  .cleanup-clean.confirming {
+    color: var(--gold);
+    border-color: rgba(240, 192, 74, 0.55);
+    animation: nudge 0.42s ease;
+  }
+  @keyframes nudge {
+    0%, 100% { transform: translateX(0); }
+    30%      { transform: translateX(-2px); }
+    70%      { transform: translateX(2px); }
+  }
+
+  /* Freed space flashes the row before it leaves the list. */
+  .cleanup-item.freed { animation: freed 0.5s ease; }
+  @keyframes freed {
+    0%   { background: rgba(58, 138, 138, 0.22); }
+    100% { background: transparent; }
+  }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -1173,7 +1258,8 @@
     <div style="font-size:24px;margin-bottom:6px">&#129529;</div>
     <h2 style="text-align:center">Free up disk space</h2>
     <p style="color:var(--muted);font-size:12px;line-height:1.6;margin-bottom:12px;text-align:center">
-      Big directories sorted by size. Tap <em>Open</em> to inspect &amp; clean them in Finder — the app never deletes anything itself.
+      Big directories sorted by size. <em>Open</em> inspects one in Finder; <em>Clean</em> deletes a
+      throwaway cache (it rebuilds itself) and asks for a second click first. App data is never touched.
     </p>
     <div class="cleanup-total" id="cleanupTotal"></div>
     <div class="cleanup-list" id="cleanupList">
@@ -1270,47 +1356,46 @@
         <div class="lpm-knob"></div>
       </div>
       <div class="lpm-info">
-        <div class="lpm-label">Low Power Mode</div>
-        <div class="lpm-desc">Same switch as System Settings → Battery — throttles CPU/GPU to cut heat</div>
-        <div class="lpm-hint">Toggle it in <span class="lpm-system-link">System Settings → Battery</span> · mirrors live state</div>
+        <div class="lpm-label">Low Power Mode <span class="lpm-status-pill" id="lpmStatusPill" data-on="false">OFF</span></div>
+        <div class="lpm-desc">Throttles CPU/GPU to cut heat</div>
+        <div class="lpm-hint">Toggle it in <span class="lpm-system-link">System Settings → Battery</span></div>
       </div>
-      <div class="lpm-status-pill" id="lpmStatusPill" data-on="false">OFF</div>
     </div>
 
     <label class="lpm-row" id="batteryProtectRow" onclick="toggleBatteryProtect(event)">
       <input type="checkbox" id="batteryProtectCheckbox">
       <div class="lpm-toggle"></div>
-      <div>
+      <div class="lpm-info">
         <div class="lpm-label">Battery protection (≤2%) <span class="pro-tag" data-pro-lock>🔒 PRO</span></div>
+        <div class="lpm-desc">Auto-restore sleep to prevent data loss</div>
       </div>
-      <div class="lpm-desc">Auto-restore sleep to prevent data loss</div>
     </label>
 
     <label class="lpm-row" id="forceSleepRow" onclick="toggleForceSleep(event)">
       <input type="checkbox" id="forceSleepCheckbox">
       <div class="lpm-toggle"></div>
-      <div>
+      <div class="lpm-info">
         <div class="lpm-label">Force sleep at ≤2% <span class="pro-tag" data-pro-lock>🔒 PRO</span></div>
+        <div class="lpm-desc">Sleep immediately, even with the lid open</div>
       </div>
-      <div class="lpm-desc">Sleep immediately, even with the lid open</div>
     </label>
 
     <label class="lpm-row" id="sleepGraceRow" onclick="toggleSleepGrace(event)">
       <input type="checkbox" id="sleepGraceCheckbox">
       <div class="lpm-toggle"></div>
-      <div>
+      <div class="lpm-info">
         <div class="lpm-label">Warn before critical sleep</div>
+        <div class="lpm-desc">60s notice at ≤2% to plug in first</div>
       </div>
-      <div class="lpm-desc">60s notice at ≤2% to plug in first</div>
     </label>
 
     <label class="lpm-row" id="restoreWindowRow" onclick="toggleRestoreWindow(event)">
       <input type="checkbox" id="restoreWindowCheckbox">
       <div class="lpm-toggle"></div>
-      <div>
+      <div class="lpm-info">
         <div class="lpm-label">Restore window size &amp; position</div>
+        <div class="lpm-desc">Reopen where &amp; how you left it</div>
       </div>
-      <div class="lpm-desc">Reopen where &amp; how you left it</div>
     </label>
 
     <div id="batteryWarn" style="display:none;width:100%;margin-bottom:16px;padding:10px 14px;border-radius:12px;background:rgba(232,147,90,0.10);border:1px solid rgba(232,147,90,0.30);font-size:11px;line-height:1.5;color:#e8935a"></div>
@@ -1395,6 +1480,18 @@ function setRing(pct) {
   // A zero-length round-capped arc still paints a dot at 12 o'clock; hide it
   // so an idle timer looks empty rather than "almost started".
   ring.style.opacity = clamped === 0 ? '0' : '1';
+}
+
+// Write the countdown and give it a one-frame settle, so a live session reads
+// as moving without the digits jumping. Identical text is a no-op.
+const timerEl = $('timer')
+function setTimerText(txt, animate) {
+  if (timerEl.textContent === txt) return
+  timerEl.textContent = txt
+  if (!animate) return
+  timerEl.classList.remove('tick')
+  void timerEl.offsetWidth
+  timerEl.classList.add('tick')
 }
 
 function fmt(s) {
@@ -1653,10 +1750,19 @@ function toggleEgg(e) {
 // paths are still being measured instead of sitting on "Scanning…".
 let cleanupOpen = false
 let cleanupItems = []
+// Rows are recreated on every render; remember which ones already played their
+// entrance so a streaming update does not re-animate the whole list.
+const cleanupEntered = new Set()
 
 function cleanupRow(it) {
   const row = document.createElement('div')
   row.className = 'cleanup-item'
+  const key = it.id || it.path
+  if (!cleanupEntered.has(key)) {
+    cleanupEntered.add(key)
+    row.classList.add('enter')
+    row.style.setProperty('--i', Math.min(cleanupEntered.size - 1, 8))
+  }
 
   const left = document.createElement('div')
   left.style.cssText = 'flex:1;min-width:0'
@@ -1682,8 +1788,77 @@ function cleanupRow(it) {
   })
   right.append(size, open)
 
+  if (it.cleanable && it.id) right.append(cleanButton(it, row, size))
+
   row.append(left, right)
   return row
+}
+
+// Deleting is a two-step click: the first arms the button, the second runs it.
+// The main process only accepts ids it knows to be throwaway caches.
+function cleanButton(it, row, size) {
+  const btn = document.createElement('button')
+  btn.className = 'cleanup-open cleanup-clean'
+  btn.textContent = 'Clean'
+  btn.title = 'Delete this cache — it is rebuilt on demand'
+
+  let armed = false
+  let disarm = null
+  const reset = () => {
+    armed = false
+    clearTimeout(disarm)
+    btn.classList.remove('confirming')
+    btn.textContent = 'Clean'
+  }
+
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault()
+    if (btn.disabled) return
+    if (!armed) {
+      armed = true
+      btn.classList.add('confirming')
+      btn.textContent = 'Sure?'
+      disarm = setTimeout(reset, 3000)
+      return
+    }
+    clearTimeout(disarm)
+    armed = false
+    btn.classList.remove('confirming')
+    btn.disabled = true
+    btn.textContent = '…'
+
+    const r = await window.mca.cleanCache(it.id).catch(() => null)
+    if (!r || !r.ok) {
+      btn.disabled = false
+      btn.textContent = 'Failed'
+      btn.title = (r && r.error) || 'Could not delete this folder'
+      setTimeout(reset, 2400)
+      return
+    }
+
+    row.classList.add('freed')
+    size.textContent = '0 KB'
+    btn.textContent = 'Freed'
+    // Drop it from the model so the next render does not resurrect the size.
+    cleanupItems = cleanupItems.filter(x => x !== it)
+    updateCleanupTotal()
+    setTimeout(() => { if (cleanupOpen) renderCleanup() }, 900)
+  })
+
+  return btn
+}
+
+function updateCleanupTotal() {
+  const totalMB = cleanupItems.reduce((sum, it) => sum + it.kb, 0) / 1024
+  const cleanable = cleanupItems.filter(it => it.cleanable && it.id)
+  const reclaimable = cleanable.reduce((sum, it) => sum + it.kb, 0) / 1024
+  const scope = totalMB >= 1024
+    ? `~${(totalMB / 1024).toFixed(1)} GB across ${cleanupItems.length} locations`
+    : `~${totalMB.toFixed(0)} MB across ${cleanupItems.length} locations`
+  const safe = reclaimable >= 1
+    ? ` · ${reclaimable >= 1024 ? (reclaimable / 1024).toFixed(1) + ' GB' : reclaimable.toFixed(0) + ' MB'} of it is safe to clean`
+    : ''
+  $('cleanupTotal').textContent = scope + safe
 }
 
 function renderCleanup() {
@@ -1695,10 +1870,7 @@ function renderCleanup() {
   }
   const sorted = [...cleanupItems].sort((a, b) => b.kb - a.kb)
   list.replaceChildren(...sorted.map(cleanupRow))
-  const totalMB = sorted.reduce((sum, it) => sum + it.kb, 0) / 1024
-  $('cleanupTotal').textContent = totalMB >= 1024
-    ? `~${(totalMB / 1024).toFixed(1)} GB across ${sorted.length} locations`
-    : `~${totalMB.toFixed(0)} MB across ${sorted.length} locations`
+  updateCleanupTotal()
 }
 
 function openCleanup() {
@@ -1743,6 +1915,7 @@ let memTimer = null
 let memMin = 0        // filter threshold in MB
 let memBusy = false   // an action is in flight — don't repaint under the click
 let memLast = null    // last snapshot, kept so a slow refresh never blanks the list
+const memEntered = new Set()  // rows that already played their entrance
 
 function fmtMem(mb) {
   if (!mb) return '0 MB'
@@ -1848,6 +2021,16 @@ function renderMemory() {
   }
 
   list.scrollTop = keepScroll
+
+  // First appearance only: the 10s repaint rebuilds these rows, and replaying
+  // the entrance every time would make the panel feel restless.
+  list.querySelectorAll('.mem-row').forEach((el, i) => {
+    const key = el.dataset.name
+    if (!key || memEntered.has(key)) return
+    memEntered.add(key)
+    el.classList.add('enter')
+    el.style.setProperty('--i', Math.min(i, 8))
+  })
 
   const frozenCount = (r.frozen || []).length
   $('memThawAllBtn').style.display = frozenCount ? '' : 'none'
@@ -1978,7 +2161,7 @@ window.mca.onTick((n) => {
     $('timer').textContent = '∞';
     setRing(1);
   } else {
-    $('timer').textContent = fmt(n);
+    setTimerText(fmt(n), true)
     // Ring drains from full to empty as time counts down.
     // setRing(pct) does: dashoffset = CIRC - CIRC*pct
     //   pct=1 → dashoffset=0 → ring fully visible (full)
