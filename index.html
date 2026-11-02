@@ -1238,6 +1238,89 @@
     100% { background: transparent; }
   }
 
+  /* ── Nuclear ──────────────────────────────────────────────────────
+     Destructive controls get a low ember breath so they read as "careful"
+     rather than "primary". Only opacity / box-shadow / filter move, so the
+     hover lift keeps sole ownership of transform. */
+  .nuclear-btn { overflow: hidden; }
+  .nuclear-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(130% 150% at 50% 125%, rgba(232, 93, 90, 0.30), transparent 72%);
+    pointer-events: none;
+    animation: nukeEmber 4.5s ease-in-out infinite;
+  }
+  @keyframes nukeEmber {
+    0%, 100% { opacity: 0.25; }
+    50%      { opacity: 0.7; }
+  }
+  .nuclear-btn:hover:not(:disabled)::after {
+    animation: none;
+    opacity: 0.85;
+  }
+
+  /* The confirm card only animates while it is open — the overlays stay in the
+     tree, so an ungated animation would burn frames behind a hidden panel. */
+  #nuclearOverlay.show .nuclear-glyph {
+    animation: nukeSpinIn 0.7s var(--ease-spring) both,
+               nukeGlyphPulse 2.4s ease-in-out 0.7s infinite;
+  }
+  @keyframes nukeSpinIn {
+    from { transform: rotate(-150deg) scale(0.4); opacity: 0; }
+    to   { transform: rotate(0deg) scale(1); opacity: 1; }
+  }
+  @keyframes nukeGlyphPulse {
+    0%, 100% { transform: scale(1);   filter: drop-shadow(0 0 0 rgba(232, 93, 90, 0)); }
+    50%      { transform: scale(1.08); filter: drop-shadow(0 0 14px rgba(232, 93, 90, 0.75)); }
+  }
+  .nuclear-glyph {
+    display: inline-block;
+    align-self: center;
+    font-size: 32px;
+    margin-bottom: 12px;
+  }
+
+  /* The one irreversible button: a slow glow plus a light sweeping across it. */
+  #nuclearOverlay.show .overlay-btn-nuke {
+    position: relative;
+    overflow: hidden;
+    animation: nukeBtnGlow 2.6s ease-in-out infinite;
+  }
+  @keyframes nukeBtnGlow {
+    0%, 100% { box-shadow: 0 0 0 rgba(232, 93, 90, 0); }
+    50%      { box-shadow: 0 0 22px rgba(232, 93, 90, 0.45); }
+  }
+  #nuclearOverlay.show .overlay-btn-nuke::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 0;
+    width: 55%;
+    background: linear-gradient(100deg, transparent, rgba(255, 207, 202, 0.22), transparent);
+    transform: translateX(-140%) skewX(-14deg);
+    animation: nukeSweep 2.6s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes nukeSweep {
+    0%        { transform: translateX(-140%) skewX(-14deg); }
+    55%, 100% { transform: translateX(260%) skewX(-14deg); }
+  }
+
+  /* Countdown digits punch on every tick; zero lands harder. */
+  .countdown-num.tick { animation: cdTick 0.42s var(--ease-spring); }
+  @keyframes cdTick {
+    0%   { transform: scale(1.35); opacity: 0.45; }
+    60%  { transform: scale(0.96); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  .countdown-num.tick.final { animation: cdFinal 0.6s ease-out; }
+  @keyframes cdFinal {
+    0%   { transform: scale(1.22); text-shadow: 0 0 90px rgba(255, 59, 48, 1); }
+    100% { transform: scale(1); }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.001ms !important;
@@ -1285,7 +1368,7 @@
 <!-- Nuclear confirm overlay (mode: shutdown | restart) -->
 <div class="overlay" id="nuclearOverlay" data-mode="restart">
   <div class="overlay-card nuclear-pop">
-    <div style="font-size:32px;margin-bottom:12px">&#9762;</div>
+    <div class="nuclear-glyph">&#9762;</div>
     <h2 id="nuclearTitle">Nuclear Restart</h2>
     <p id="nuclearDesc">This will quit <b>every</b> open app (force-quitting any that won't close), then restart the computer. Unsaved work will be lost.</p>
     <button class="overlay-btn-nuke" onclick="nuclear()">&#9762; &nbsp;Yes, kill everything &amp; restart</button>
@@ -2220,18 +2303,29 @@ function runCountdown() {
   return new Promise((resolve) => {
     const overlay = $('countdownOverlay');
     const num = $('countdownNum');
+    // Re-adding the class alone would not replay the animation, so drop it,
+    // force a reflow, then put it back.
+    const punch = (final) => {
+      num.classList.remove('tick', 'final');
+      void num.offsetWidth;
+      num.classList.add('tick');
+      if (final) num.classList.add('final');
+    };
     let n = 5;
     overlay.classList.add('show');
     num.textContent = n;
+    punch(false);
     eggTick(false);
     const iv = setInterval(() => {
       n--;
       if (n > 0) {
         num.textContent = n;
+        punch(false);
         eggTick(false);
       } else {
         clearInterval(iv);
         num.textContent = '0';
+        punch(true);
         eggTick(true);
         // black-out moment, then fire
         setTimeout(() => { resolve(); }, 600);
