@@ -76,15 +76,28 @@ function startCaffeinate() {
   // -m keeps the disk from idle-sleeping so long builds don't stall on I/O.
   // Note: the kernel honours -s only on AC power (see caffeinate(1)); on battery
   // the pmset disablesleep flag from the helper is what carries the session.
-  caffeineProcess = spawn('caffeinate', ['-s', '-i', '-m', '-t', '86400'], { detached: true })
+  // -d (default on) keeps the screen awake too — a dark panel reads as "it
+  // stopped working" even though the Mac is still running. Off = macOS settings
+  // own the display; auto-brightness may still dim, and a closed lid always
+  // blanks the internal panel.
+  const args = ['-s', '-i', '-m', '-t', '86400']
+  if (loadConfig().keepDisplayAwake !== false) args.push('-d')
+  caffeineProcess = spawn('caffeinate', args, { detached: true })
 
   if (caffeineProcess.pid) {
     fs.writeFileSync(CAFFEINE_PID_FILE, String(caffeineProcess.pid))
   }
 
-  caffeineProcess.on('exit', () => {
-    caffeineProcess = null
-    try { fs.unlinkSync(CAFFEINE_PID_FILE) } catch {}
+  // The exit handler fires asynchronously. When stopCaffeinate() is followed by
+  // startCaffeinate() (restartCaffeinate), the dying child must not clobber its
+  // replacement's state — or we'd lose the new pid file and the next start
+  // would spawn a duplicate caffeinate while Stop could orphan the running one.
+  const proc = caffeineProcess
+  proc.on('exit', () => {
+    if (caffeineProcess === proc) {
+      caffeineProcess = null
+      try { fs.unlinkSync(CAFFEINE_PID_FILE) } catch {}
+    }
   })
 
   caffeineProcess.on('error', (err) => {
@@ -685,6 +698,7 @@ ipcMain.handle('status', async () => {
       batteryProtect: cfg.batteryProtect !== false, // default on
       sleepGrace: cfg.sleepGrace !== false, // default on
       forceSleep: cfg.forceSleep === true, // default off
+      keepDisplayAwake: cfg.keepDisplayAwake !== false, // default on
       isAwake: cfg.isAwake === true,
       onAC: power.onAC,
       batteryPercent: power.percent,
@@ -736,6 +750,21 @@ ipcMain.handle('set-force-sleep', async (_, enabled) => {
     cfg.forceSleep = enabled === true
     saveConfig(cfg)
     return { ok: true, enabled: cfg.forceSleep }
+  } catch (e) {
+    return { ok: false, error: e.message }
+  }
+})
+
+// Keep display awake — adds -d to the session's caffeinate (prevents display
+// sleep). Off = macOS settings own the screen. Applied to a live session
+// immediately via restartCaffeinate().
+ipcMain.handle('set-keep-display-awake', async (_, enabled) => {
+  try {
+    const cfg = loadConfig()
+    cfg.keepDisplayAwake = enabled === true
+    saveConfig(cfg)
+    restartCaffeinate()
+    return { ok: true, enabled: cfg.keepDisplayAwake }
   } catch (e) {
     return { ok: false, error: e.message }
   }

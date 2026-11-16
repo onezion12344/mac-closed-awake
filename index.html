@@ -1509,6 +1509,15 @@
       </div>
     </label>
 
+    <label class="lpm-row" id="keepDisplayRow" onclick="toggleKeepDisplay(event)">
+      <input type="checkbox" id="keepDisplayCheckbox">
+      <div class="lpm-toggle"></div>
+      <div class="lpm-info">
+        <div class="lpm-label">Keep display awake</div>
+        <div class="lpm-desc">Screen stays on during a session · auto-brightness still dims</div>
+      </div>
+    </label>
+
     <label class="lpm-row" id="sleepGraceRow" onclick="toggleSleepGrace(event)">
       <input type="checkbox" id="sleepGraceCheckbox">
       <div class="lpm-toggle"></div>
@@ -1709,6 +1718,18 @@ async function toggleForceSleep(e) {
   } else {
     checkbox.checked = forceSleepEnabled
   }
+}
+
+// Session convenience: whether the display may sleep while a keep-awake session
+// runs. On = caffeinate gains -d (display sleep prevented). Off = macOS settings
+// own the screen. A closed lid always blanks the panel regardless.
+async function toggleKeepDisplay(e) {
+  if (e) e.preventDefault()
+  const checkbox = $('keepDisplayCheckbox')
+  const want = !checkbox.checked
+  const r = await window.mca.setKeepDisplayAwake(want)
+  if (r.ok) checkbox.checked = r.enabled
+  else checkbox.checked = !want
 }
 
 // Free (non-Pro) safety behavior: whether a 60s warning precedes critical sleep.
@@ -2385,6 +2406,7 @@ window.mca.status().then(s => {
   $('batteryProtectCheckbox').checked = batteryProtectEnabled;
   forceSleepEnabled = s.forceSleep === true; // default off
   $('forceSleepCheckbox').checked = forceSleepEnabled;
+  $('keepDisplayCheckbox').checked = s.keepDisplayAwake !== false; // default on
   $('sleepGraceCheckbox').checked = s.sleepGrace !== false; // default on
   $('restoreWindowCheckbox').checked = s.windowRestored !== false; // default on
   eggEnabled = localStorage.getItem('mca.egg') === '1';

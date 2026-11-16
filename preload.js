@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('mca', {
   activateLicense: (key) => ipcRenderer.invoke('activate-license', key),
   setBatteryProtect: (enabled) => ipcRenderer.invoke('set-battery-protect', enabled),
   setForceSleep: (enabled) => ipcRenderer.invoke('set-force-sleep', enabled),
+  setKeepDisplayAwake: (enabled) => ipcRenderer.invoke('set-keep-display-awake', enabled),
   setBatteryGrace: (enabled) => ipcRenderer.invoke('set-battery-grace', enabled),
   setRestoreWindow: (enabled) => ipcRenderer.invoke('set-restore-window', enabled),
   nuclearReady: () => ipcRenderer.invoke('nuclear-ready'),
